@@ -16,6 +16,7 @@
  */
 import type { ToolRegistry } from "../core/tools/registry.js";
 import type { PermissionContext, PermissionMode } from "../core/permissions/types.js";
+import type { RuntimeConfigManager } from "../core/config/runtimeConfig.js";
 
 /** Result of running a slash command. */
 export interface SlashCommandResult {
@@ -37,6 +38,7 @@ export interface SlashCommandContext {
   agentId: string;
   modelId: string;
   providerId: string;
+  configManager: RuntimeConfigManager;
 }
 
 /** A single slash command. */

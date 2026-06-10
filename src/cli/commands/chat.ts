@@ -24,6 +24,7 @@ import React from "react";
 
 import { loadConfig } from "../../config/loader.js";
 import type { OnicodeConfig, ProviderId } from "../../config/types.js";
+import { RuntimeConfigManager } from "../../core/config/runtimeConfig.js";
 import { SessionManager } from "../../core/session/sessionManager.js";
 import { Coordinator } from "../../core/coordinator/coordinator.js";
 import { loadSkills } from "../../core/skills/loader.js";
@@ -107,6 +108,10 @@ export async function runChat(args: ParsedArgs): Promise<number> {
   // Load skills from all scopes (builtin, user, project).
   const skillRegistry = await loadSkills({ log, cwd: process.cwd() });
 
+  // Runtime config manager — lets slash commands mutate provider/model/mode
+  // at runtime without restarting the session.
+  const configManager = new RuntimeConfigManager({ config, cwd: process.cwd(), log });
+
   // The permission context is shared by reference between the controller
   // (which mutates `mode` and pushes runtime allow rules) and the executor
   // (which reads them on every call).
@@ -167,6 +172,7 @@ export async function runChat(args: ParsedArgs): Promise<number> {
     agentId,
     modelId: model,
     providerId,
+    configManager,
     onExit: () => {
       // The Ink `<App>` watches the `exited` flag and calls `useApp().exit`.
     },
