@@ -234,6 +234,30 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
       }
     },
   },
+  {
+    name: "config-show",
+    summary: "Show current runtime configuration.",
+    execute: (_args, ctx) => {
+      const c = ctx.configManager.current;
+      return {
+        messages: [
+          `Provider: ${c.defaultProvider}`,
+          `Model:    ${c.defaultModel}`,
+          `Mode:     ${c.permissions.mode}`,
+          `MCP:      ${Object.keys(c.mcpServers).length} servers`,
+          `SubAgent: max ${c.coordinator.maxConcurrentSubAgents} concurrent`,
+        ],
+      };
+    },
+  },
+  {
+    name: "config-reload",
+    summary: "Reload configuration from disk.",
+    execute: async (_args, ctx) => {
+      await ctx.configManager.reload();
+      return { messages: ["Configuration reloaded from disk."] };
+    },
+  },
 ];
 
 /**

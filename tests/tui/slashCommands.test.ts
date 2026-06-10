@@ -19,9 +19,13 @@ function mockConfigManager(
     current: {
       defaultModel: overrides?.defaultModel ?? "claude-sonnet-4-20250514",
       defaultProvider: overrides?.defaultProvider ?? "anthropic",
+      permissions: { mode: "default", allow: [], deny: [] },
+      mcpServers: {},
+      coordinator: { maxConcurrentSubAgents: 3 },
     },
     setModel: vi.fn(),
     setProvider: vi.fn(),
+    reload: vi.fn().mockResolvedValue(undefined),
   } as unknown as RuntimeConfigManager;
 }
 
@@ -401,14 +405,52 @@ describe("command execution", () => {
       expect(result.messages!.join("\n")).toContain("not connected");
     });
   });
+
+  // ---- /config-show ---------------------------------------------------------
+  describe("/config-show", () => {
+    it("finds command by name", () => {
+      expect(findCommand("config-show")).toBeDefined();
+      expect(findCommand("config-show")!.name).toBe("config-show");
+    });
+
+    it("shows all config fields", () => {
+      const cm = mockConfigManager({ defaultModel: "claude-opus-4-20250514", defaultProvider: "openai" });
+      const ctx = mockCtx({ configManager: cm });
+      const result = findCommand("config-show")!.execute("", ctx) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      const text = result.messages!.join("\n");
+      expect(text).toContain("openai");
+      expect(text).toContain("claude-opus-4-20250514");
+      expect(text).toContain("default");
+      expect(text).toContain("0 servers");
+      expect(text).toContain("3 concurrent");
+    });
+  });
+
+  // ---- /config-reload -------------------------------------------------------
+  describe("/config-reload", () => {
+    it("finds command by name", () => {
+      expect(findCommand("config-reload")).toBeDefined();
+      expect(findCommand("config-reload")!.name).toBe("config-reload");
+    });
+
+    it("calls reload and shows confirmation", async () => {
+      const cm = mockConfigManager();
+      const ctx = mockCtx({ configManager: cm });
+      const result = (await findCommand("config-reload")!.execute("", ctx)) as { messages?: string[] };
+      expect(cm.reload).toHaveBeenCalled();
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("reloaded");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
 // SLASH_COMMANDS structure
 // ---------------------------------------------------------------------------
 describe("SLASH_COMMANDS", () => {
-  it("contains exactly 11 commands", () => {
-    expect(SLASH_COMMANDS).toHaveLength(11);
+  it("contains exactly 13 commands", () => {
+    expect(SLASH_COMMANDS).toHaveLength(13);
   });
 
   it.each(SLASH_COMMANDS.map((c) => [c.name, c]))(
