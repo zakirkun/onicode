@@ -13,8 +13,7 @@
  */
 import { z } from "zod";
 
-/** Provider id mirror — kept in sync with `ProviderIdSchema` in config. */
-const ProviderIdSchema = z.enum(["anthropic", "openai", "ollama"]);
+import { ProviderIdSchema } from "../../config/schema.js";
 
 /**
  * Accept YAML `null` (from `~`) or absent field, both mapping to
