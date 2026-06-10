@@ -104,6 +104,47 @@ describe("OpenAIProvider", () => {
       ]);
     });
 
+    it("yields thinking deltas from reasoning models", async () => {
+      const chunks = [
+        {
+          choices: [{ delta: { reasoning_content: "Let me think" }, finish_reason: null, index: 0 }],
+          usage: null,
+        },
+        {
+          choices: [{ delta: { reasoning_content: " about this..." }, finish_reason: null, index: 0 }],
+          usage: null,
+        },
+        {
+          choices: [{ delta: { content: "The answer is 42." }, finish_reason: null, index: 0 }],
+          usage: null,
+        },
+        {
+          choices: [{ delta: {}, finish_reason: "stop", index: 0 }],
+          usage: { prompt_tokens: 15, completion_tokens: 8, total_tokens: 23 },
+        },
+      ];
+      mockCreate.mockResolvedValue(createFakeStream(chunks));
+
+      const provider = new OpenAIProvider({ apiKey: "test-key", log });
+      const req: ChatRequest = {
+        model: "o1-preview",
+        messages: [{ role: "user", content: [{ type: "text", text: "What is life?" }] }],
+      };
+      const signal = new AbortController().signal;
+
+      const results = [];
+      for await (const chunk of provider.stream(req, signal)) {
+        results.push(chunk);
+      }
+
+      expect(results).toEqual([
+        { kind: "thinking", delta: "Let me think" },
+        { kind: "thinking", delta: " about this..." },
+        { kind: "text", delta: "The answer is 42." },
+        { kind: "stop", reason: "end_turn", usage: { inputTokens: 15, outputTokens: 8 } },
+      ]);
+    });
+
     it("buffers and yields tool calls correctly", async () => {
       const chunks = [
         {

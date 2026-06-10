@@ -39,6 +39,8 @@ export function toOpenAIMessages(messages: readonly ChatMessage[]): ChatCompleti
           content: toolResult.content,
         } as ChatCompletionMessageParam;
       }
+      // Concatenate text blocks. Thinking blocks are dropped — OpenAI
+      // does not accept reasoning content back in conversation history.
       const text = msg.content
         .filter((block) => block.type === "text")
         .map((block) => (block as { type: "text"; text: string }).text)

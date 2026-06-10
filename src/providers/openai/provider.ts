@@ -139,6 +139,13 @@ export class OpenAIProvider implements LLMProvider {
             yield { kind: "text", delta: delta.content };
           }
 
+          // Reasoning content from reasoning models (o1, o3, o4-mini).
+          // The SDK doesn't type this, so cast through unknown.
+          const reasoning = (delta as unknown as { reasoning_content?: string }).reasoning_content;
+          if (reasoning != null && reasoning.length > 0) {
+            yield { kind: "thinking", delta: reasoning };
+          }
+
           // Tool-call argument fragments.
           if (delta.tool_calls) {
             for (const tc of delta.tool_calls) {
