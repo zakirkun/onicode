@@ -1,13 +1,28 @@
 /**
  * Slash command registry tests.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   findCommand,
   parseSlashCommand,
   SLASH_COMMANDS,
 } from "../../src/tui/slashCommands.js";
 import type { SlashCommandContext } from "../../src/tui/slashCommands.js";
+import type { RuntimeConfigManager } from "../../src/core/config/runtimeConfig.js";
+
+/** Build a mock RuntimeConfigManager. */
+function mockConfigManager(
+  overrides?: Partial<{ defaultModel: string; defaultProvider: string }>,
+): RuntimeConfigManager {
+  return {
+    current: {
+      defaultModel: overrides?.defaultModel ?? "claude-sonnet-4-20250514",
+      defaultProvider: overrides?.defaultProvider ?? "anthropic",
+    },
+    setModel: vi.fn(),
+    setProvider: vi.fn(),
+  } as unknown as RuntimeConfigManager;
+}
 
 /** Build a minimal mock context for command execution. */
 function mockCtx(
@@ -22,6 +37,7 @@ function mockCtx(
     agentId: "agent-test",
     modelId: "claude-3",
     providerId: "anthropic",
+    configManager: mockConfigManager(),
     ...overrides,
   };
 }
@@ -30,7 +46,7 @@ function mockCtx(
 // findCommand
 // ---------------------------------------------------------------------------
 describe("findCommand", () => {
-  it.each(["help", "exit", "mode", "tools", "session", "clear"] as const)(
+  it.each(["help", "exit", "mode", "tools", "session", "clear", "model", "provider"] as const)(
     "finds command by name: %s",
     (name) => {
       const cmd = findCommand(name);
@@ -188,14 +204,89 @@ describe("command execution", () => {
     expect(result.messages).toBeDefined();
     expect(result.messages!).toEqual([]);
   });
+
+  // ---- /model ---------------------------------------------------------------
+  describe("/model", () => {
+    it("finds command by name", () => {
+      expect(findCommand("model")).toBeDefined();
+      expect(findCommand("model")!.name).toBe("model");
+    });
+
+    it("shows current model with no args", () => {
+      const cm = mockConfigManager({ defaultModel: "claude-opus-4-20250514" });
+      const ctx = mockCtx({ configManager: cm });
+      const result = findCommand("model")!.execute("", ctx) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("claude-opus-4-20250514");
+    });
+
+    it("changes model when args provided", () => {
+      const cm = mockConfigManager();
+      const ctx = mockCtx({ configManager: cm });
+      const result = findCommand("model")!.execute("gpt-4o", ctx) as { messages?: string[] };
+      expect(cm.setModel).toHaveBeenCalledWith("gpt-4o");
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("gpt-4o");
+    });
+
+    it("trims whitespace from model arg", () => {
+      const cm = mockConfigManager();
+      const ctx = mockCtx({ configManager: cm });
+      findCommand("model")!.execute("  gpt-4o  ", ctx);
+      expect(cm.setModel).toHaveBeenCalledWith("gpt-4o");
+    });
+  });
+
+  // ---- /provider ------------------------------------------------------------
+  describe("/provider", () => {
+    it("finds command by name", () => {
+      expect(findCommand("provider")).toBeDefined();
+      expect(findCommand("provider")!.name).toBe("provider");
+    });
+
+    it("shows current provider with no args", () => {
+      const cm = mockConfigManager({ defaultProvider: "openai" });
+      const ctx = mockCtx({ configManager: cm });
+      const result = findCommand("provider")!.execute("", ctx) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("openai");
+    });
+
+    it("changes provider when valid id provided", () => {
+      const cm = mockConfigManager();
+      const ctx = mockCtx({ configManager: cm });
+      const result = findCommand("provider")!.execute("openai", ctx) as { messages?: string[] };
+      expect(cm.setProvider).toHaveBeenCalledWith("openai");
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("openai");
+    });
+
+    it("accepts all valid provider ids", () => {
+      for (const pid of ["anthropic", "openai", "ollama"]) {
+        const cm = mockConfigManager();
+        const ctx = mockCtx({ configManager: cm });
+        findCommand("provider")!.execute(pid, ctx);
+        expect(cm.setProvider).toHaveBeenCalledWith(pid);
+      }
+    });
+
+    it("rejects unknown provider", () => {
+      const cm = mockConfigManager();
+      const ctx = mockCtx({ configManager: cm });
+      const result = findCommand("provider")!.execute("gemini", ctx) as { messages?: string[] };
+      expect(cm.setProvider).not.toHaveBeenCalled();
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("Unknown provider");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
 // SLASH_COMMANDS structure
 // ---------------------------------------------------------------------------
 describe("SLASH_COMMANDS", () => {
-  it("contains exactly 6 commands", () => {
-    expect(SLASH_COMMANDS).toHaveLength(6);
+  it("contains exactly 8 commands", () => {
+    expect(SLASH_COMMANDS).toHaveLength(8);
   });
 
   it.each(SLASH_COMMANDS.map((c) => [c.name, c]))(
