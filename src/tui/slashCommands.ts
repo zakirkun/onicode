@@ -19,6 +19,7 @@ import type { PermissionContext, PermissionMode } from "../core/permissions/type
 import type { RuntimeConfigManager } from "../core/config/runtimeConfig.js";
 import type { McpManager } from "../core/mcp/manager.js";
 import type { McpServerConfig, ProviderId } from "../config/types.js";
+import type { MemoryManager } from "../core/memory/memoryManager.js";
 
 /** Result of running a slash command. */
 export interface SlashCommandResult {
@@ -42,6 +43,7 @@ export interface SlashCommandContext {
   providerId: string;
   configManager: RuntimeConfigManager;
   mcpManager: McpManager;
+  memoryManager: MemoryManager;
 }
 
 /** A single slash command. */
@@ -256,6 +258,38 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     execute: async (_args, ctx) => {
       await ctx.configManager.reload();
       return { messages: ["Configuration reloaded from disk."] };
+    },
+  },
+  {
+    name: "memory-view",
+    summary: "Show project memory contents.",
+    execute: async (_args, ctx) => {
+      const content = await ctx.memoryManager.load();
+      if (!content) {
+        return { messages: ["No memory file. Use /memory-add to create one."] };
+      }
+      return { messages: [content] };
+    },
+  },
+  {
+    name: "memory-add",
+    args: "<entry>",
+    summary: "Add an entry to project memory.",
+    execute: async (args, ctx) => {
+      const entry = args.trim();
+      if (!entry) {
+        return { messages: ["Usage: /memory-add <entry>"] };
+      }
+      await ctx.memoryManager.append(`- ${entry}`);
+      return { messages: [`Added to memory: ${entry}`] };
+    },
+  },
+  {
+    name: "memory-clear",
+    summary: "Clear all project memory.",
+    execute: async (_args, ctx) => {
+      await ctx.memoryManager.clear();
+      return { messages: ["Project memory cleared."] };
     },
   },
 ];

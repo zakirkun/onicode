@@ -26,6 +26,8 @@ import type { PermissionContext } from "../core/permissions/types.js";
 import type { ToolRegistry } from "../core/tools/registry.js";
 import type { RuntimeConfigManager } from "../core/config/runtimeConfig.js";
 import type { McpManager } from "../core/mcp/manager.js";
+import type { MemoryManager } from "../core/memory/memoryManager.js";
+import type { BackgroundAgentManager } from "../core/coordinator/backgroundAgentManager.js";
 import type { TokenUsage } from "../providers/types.js";
 import type { Logger } from "../utils/logger.js";
 import { expandMentions } from "./mentionResolver.js";
@@ -50,6 +52,7 @@ export interface TuiState {
   usage: TokenUsage;
   inputEnabled: boolean;
   exited: boolean;
+  bgCount: number;
 }
 
 /** Construction options for {@link TuiController}. */
@@ -64,6 +67,8 @@ export interface TuiControllerOptions {
   providerId: string;
   configManager: RuntimeConfigManager;
   mcpManager: McpManager;
+  memoryManager: MemoryManager;
+  backgroundManager: BackgroundAgentManager;
   cwd: string;
   /** Called when a slash command (or the user) requests exit. */
   onExit: () => void;
@@ -84,12 +89,21 @@ export class TuiController {
     usage: { inputTokens: 0, outputTokens: 0 },
     inputEnabled: true,
     exited: false,
+    bgCount: 0,
   };
 
   private readonly subscribers = new Set<() => void>();
   private currentAbort: AbortController | null = null;
 
-  constructor(private readonly opts: TuiControllerOptions) {}
+  constructor(private readonly opts: TuiControllerOptions) {
+    // Subscribe to background agent notifications to keep bgCount in sync.
+    opts.backgroundManager.onNotification(() => {
+      this.update((s) => ({
+        ...s,
+        bgCount: opts.backgroundManager.runningCount(),
+      }));
+    });
+  }
 
   /** Subscribe to state changes. Returns the unsubscribe function. */
   subscribe(listener: () => void): () => void {
@@ -105,6 +119,11 @@ export class TuiController {
   /** Return the active permission mode (read straight from the live context). */
   getMode(): string {
     return this.opts.permissionContext.mode;
+  }
+
+  /** Return the current background agent count (read from state snapshot). */
+  getBgCount(): number {
+    return this.state.bgCount;
   }
 
   /**
@@ -205,6 +224,7 @@ export class TuiController {
       providerId: this.opts.providerId,
       configManager: this.opts.configManager,
       mcpManager: this.opts.mcpManager,
+      memoryManager: this.opts.memoryManager,
     };
     try {
       const result = await cmd.execute(args, ctx);
@@ -282,10 +302,12 @@ export class TuiController {
       this.pushError(message);
     } finally {
       this.currentAbort = null;
+      const bgCount = this.opts.backgroundManager.runningCount();
       this.update((s) => ({
         ...s,
         activity: { kind: "idle" },
         inputEnabled: !s.exited,
+        bgCount,
       }));
     }
   }

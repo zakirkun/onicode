@@ -32,6 +32,7 @@ import { createProvider } from "../../providers/registry.js";
 import { buildBuiltinRegistry, registerOrchestrationTools } from "../../core/tools/builtinTools.js";
 import type { PromptHandler } from "../../core/tools/executor.js";
 import { McpManager } from "../../core/mcp/manager.js";
+import { createMemoryManager } from "../../core/memory/memoryManager.js";
 import { createAgentSpawnTool } from "../../tools/builtin/agentSpawn.js";
 import { App } from "../../tui/App.js";
 import { TuiController } from "../../tui/controller.js";
@@ -163,8 +164,15 @@ export async function runChat(args: ParsedArgs): Promise<number> {
   // Register DAG orchestration tools (TaskSpawn, TaskQuery).
   registerOrchestrationTools(registry, coordinator, agentId);
 
+  // Load project memory and inject into system prompt.
+  const memoryManager = createMemoryManager(process.cwd());
+  const memory = await memoryManager.load();
+  const systemPrompt = memory
+    ? `${DEFAULT_SYSTEM_PROMPT}\n\n## Project Context\n\n${memory}`
+    : DEFAULT_SYSTEM_PROMPT;
+
   // Use the coordinator's factory method to build the top-level agent.
-  const agent = coordinator.buildTopLevelAgent(agentId, DEFAULT_SYSTEM_PROMPT);
+  const agent = coordinator.buildTopLevelAgent(agentId, systemPrompt);
 
   controller = new TuiController({
     agent,
@@ -177,6 +185,8 @@ export async function runChat(args: ParsedArgs): Promise<number> {
     providerId,
     configManager,
     mcpManager,
+    memoryManager,
+    backgroundManager: coordinator.backgroundManager,
     cwd: process.cwd(),
     onExit: () => {
       // The Ink `<App>` watches the `exited` flag and calls `useApp().exit`.

@@ -2,7 +2,8 @@
  * Status bar component.
  *
  * Bottom-of-screen single-line status. Renders permission mode, provider,
- * model, current activity, accumulated token usage, and a hint for `/help`.
+ * model, current activity, accumulated token usage, background agent count,
+ * and a hint for `/help`.
  */
 import { Box, Text } from "ink";
 import React from "react";
@@ -18,6 +19,7 @@ export interface StatusBarProps {
   activity: AgentActivity;
   usage: TokenUsage;
   sessionId: string;
+  bgCount: number;
 }
 
 /** Render the bottom status bar. */
@@ -44,6 +46,9 @@ export function StatusBar(props: StatusBarProps): React.ReactElement {
         <Text dimColor>{renderActivity(props.activity)}</Text>
       </Box>
       <Box>
+        {props.bgCount > 0 && (
+          <Text color="yellow"> [{props.bgCount} bg] </Text>
+        )}
         <Text dimColor>
           tokens in:{props.usage.inputTokens} out:{props.usage.outputTokens}
         </Text>

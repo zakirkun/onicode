@@ -10,6 +10,7 @@ import {
 import type { SlashCommandContext } from "../../src/tui/slashCommands.js";
 import type { RuntimeConfigManager } from "../../src/core/config/runtimeConfig.js";
 import type { McpManager } from "../../src/core/mcp/manager.js";
+import type { MemoryManager } from "../../src/core/memory/memoryManager.js";
 
 /** Build a mock RuntimeConfigManager. */
 function mockConfigManager(
@@ -38,6 +39,19 @@ function mockMcpManager(): McpManager {
   } as unknown as McpManager;
 }
 
+/** Build a mock MemoryManager. */
+function mockMemoryManager(
+  overrides?: Partial<{ content: string | null }>,
+): MemoryManager {
+  return {
+    load: vi.fn().mockResolvedValue(overrides?.content ?? null),
+    save: vi.fn().mockResolvedValue(undefined),
+    append: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
+    path: vi.fn().mockReturnValue("/tmp/.onicode/memory.md"),
+  } as unknown as MemoryManager;
+}
+
 /** Build a minimal mock context for command execution. */
 function mockCtx(
   overrides?: Partial<SlashCommandContext>,
@@ -53,6 +67,7 @@ function mockCtx(
     providerId: "anthropic",
     configManager: mockConfigManager(),
     mcpManager: mockMcpManager(),
+    memoryManager: mockMemoryManager(),
     ...overrides,
   };
 }
@@ -449,8 +464,8 @@ describe("command execution", () => {
 // SLASH_COMMANDS structure
 // ---------------------------------------------------------------------------
 describe("SLASH_COMMANDS", () => {
-  it("contains exactly 13 commands", () => {
-    expect(SLASH_COMMANDS).toHaveLength(13);
+  it("contains exactly 16 commands", () => {
+    expect(SLASH_COMMANDS).toHaveLength(16);
   });
 
   it.each(SLASH_COMMANDS.map((c) => [c.name, c]))(

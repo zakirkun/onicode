@@ -112,6 +112,7 @@ export function App(props: AppProps): React.ReactElement {
         mode={props.controller.getMode()}
         activity={state.activity}
         usage={state.usage}
+        bgCount={state.bgCount}
       />
     </Box>
   );
