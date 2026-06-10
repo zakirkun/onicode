@@ -1,0 +1,13 @@
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-4-20250514",
+  "permissions": {
+    "mode": "bypassPermissions"
+  },
+  "mcpServers": {
+    "echo": {
+      "command": "node",
+      "args": ["tests/fixtures/echo-mcp-server.js"]
+    }
+  }
+}

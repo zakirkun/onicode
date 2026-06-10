@@ -1,0 +1,44 @@
+# Build output
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data (OniCode-specific)
+.onicode/
+~/.onicode/
+
+# Temporary files
+*.tmp
+*.swp
+.tmp/
+
+# Lockfiles from other package managers (we use pnpm)
+package-lock.json
+yarn.lock
