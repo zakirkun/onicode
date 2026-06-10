@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { OpenAIProvider } from "../../../src/providers/openai/provider.js";
 import type { ChatRequest } from "../../../src/providers/types.js";
 import type { Logger } from "../../../src/utils/logger.js";
+import { createMockLogger, createFakeStream } from "../../helpers/fixtures.js";
 
 // Mock the OpenAI SDK.
 vi.mock("openai", () => {
@@ -18,36 +19,6 @@ vi.mock("openai", () => {
     __mockCreate: mockCreate,
   };
 });
-
-// Helper to create a mock logger that returns itself from child().
-function createMockLogger(): Logger {
-  const logger: Logger = {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    child: vi.fn(),
-  };
-  // Make child() return the same logger so we can spy on all calls.
-  (logger.child as ReturnType<typeof vi.fn>).mockReturnValue(logger);
-  return logger;
-}
-
-// Helper to create a fake async iterator from an array of chunks.
-function createFakeStream(chunks: unknown[]): AsyncIterable<unknown> & { controller: AbortController } {
-  const controller = new AbortController();
-  return {
-    controller,
-    async *[Symbol.asyncIterator]() {
-      for (const chunk of chunks) {
-        if (controller.signal.aborted) {
-          break;
-        }
-        yield chunk;
-      }
-    },
-  };
-}
 
 describe("OpenAIProvider", () => {
   let mockCreate: ReturnType<typeof vi.fn>;

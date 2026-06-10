@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createProvider } from "../../src/providers/registry.js";
 import type { Logger } from "../../src/utils/logger.js";
 import type { ProviderConfig } from "../../src/config/types.js";
+import { createMockLogger } from "../helpers/fixtures.js";
 
 // Mock Anthropic SDK to avoid real HTTP.
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -18,18 +19,6 @@ vi.mock("openai", () => {
     __mockCreate: mockCreate,
   };
 });
-
-function createMockLogger(): Logger {
-  const logger: Logger = {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    child: vi.fn(),
-  };
-  (logger.child as ReturnType<typeof vi.fn>).mockReturnValue(logger);
-  return logger;
-}
 
 describe("createProvider", () => {
   let log: Logger;
