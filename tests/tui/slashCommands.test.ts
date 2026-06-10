@@ -9,6 +9,7 @@ import {
 } from "../../src/tui/slashCommands.js";
 import type { SlashCommandContext } from "../../src/tui/slashCommands.js";
 import type { RuntimeConfigManager } from "../../src/core/config/runtimeConfig.js";
+import type { McpManager } from "../../src/core/mcp/manager.js";
 
 /** Build a mock RuntimeConfigManager. */
 function mockConfigManager(
@@ -22,6 +23,15 @@ function mockConfigManager(
     setModel: vi.fn(),
     setProvider: vi.fn(),
   } as unknown as RuntimeConfigManager;
+}
+
+/** Build a mock McpManager. */
+function mockMcpManager(): McpManager {
+  return {
+    listServers: vi.fn().mockReturnValue([]),
+    connectRuntimeServer: vi.fn().mockResolvedValue(undefined),
+    disconnectRuntimeServer: vi.fn().mockResolvedValue(undefined),
+  } as unknown as McpManager;
 }
 
 /** Build a minimal mock context for command execution. */
@@ -38,6 +48,7 @@ function mockCtx(
     modelId: "claude-3",
     providerId: "anthropic",
     configManager: mockConfigManager(),
+    mcpManager: mockMcpManager(),
     ...overrides,
   };
 }
@@ -279,14 +290,125 @@ describe("command execution", () => {
       expect(result.messages!.join("\n")).toContain("Unknown provider");
     });
   });
+
+  // ---- /mcp-list ------------------------------------------------------------
+  describe("/mcp-list", () => {
+    it("finds command by name", () => {
+      expect(findCommand("mcp-list")).toBeDefined();
+      expect(findCommand("mcp-list")!.name).toBe("mcp-list");
+    });
+
+    it("shows message when no servers connected", () => {
+      const mm = mockMcpManager();
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = findCommand("mcp-list")!.execute("", ctx) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("No MCP servers connected");
+    });
+
+    it("lists connected servers", () => {
+      const mm = mockMcpManager();
+      (mm.listServers as any).mockReturnValue([
+        { name: "fs", connected: true, toolCount: 3 },
+        { name: "db", connected: true, toolCount: 5 },
+      ]);
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = findCommand("mcp-list")!.execute("", ctx) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      const text = result.messages!.join("\n");
+      expect(text).toContain("fs");
+      expect(text).toContain("db");
+      expect(text).toContain("3 tools");
+      expect(text).toContain("5 tools");
+    });
+  });
+
+  // ---- /mcp-add -------------------------------------------------------------
+  describe("/mcp-add", () => {
+    it("finds command by name", () => {
+      expect(findCommand("mcp-add")).toBeDefined();
+      expect(findCommand("mcp-add")!.name).toBe("mcp-add");
+    });
+
+    it("shows usage when args missing", async () => {
+      const mm = mockMcpManager();
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = (await findCommand("mcp-add")!.execute("", ctx)) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("Usage:");
+      expect(mm.connectRuntimeServer).not.toHaveBeenCalled();
+    });
+
+    it("connects server with command and args", async () => {
+      const mm = mockMcpManager();
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = (await findCommand("mcp-add")!.execute(
+        "fs npx -y @modelcontextprotocol/server-filesystem",
+        ctx,
+      )) as { messages?: string[] };
+      expect(mm.connectRuntimeServer).toHaveBeenCalledWith(
+        "fs",
+        { command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem"] },
+        expect.anything(),
+      );
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("connected");
+    });
+
+    it("shows error when connection fails", async () => {
+      const mm = mockMcpManager();
+      (mm.connectRuntimeServer as any).mockRejectedValue(new Error("spawn failed"));
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = (await findCommand("mcp-add")!.execute("fs npx", ctx)) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("Failed to connect");
+      expect(result.messages!.join("\n")).toContain("spawn failed");
+    });
+  });
+
+  // ---- /mcp-remove ----------------------------------------------------------
+  describe("/mcp-remove", () => {
+    it("finds command by name", () => {
+      expect(findCommand("mcp-remove")).toBeDefined();
+      expect(findCommand("mcp-remove")!.name).toBe("mcp-remove");
+    });
+
+    it("shows usage when name missing", async () => {
+      const mm = mockMcpManager();
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = (await findCommand("mcp-remove")!.execute("", ctx)) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("Usage:");
+      expect(mm.disconnectRuntimeServer).not.toHaveBeenCalled();
+    });
+
+    it("disconnects server by name", async () => {
+      const mm = mockMcpManager();
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = (await findCommand("mcp-remove")!.execute("fs", ctx)) as { messages?: string[] };
+      expect(mm.disconnectRuntimeServer).toHaveBeenCalledWith("fs");
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("disconnected");
+    });
+
+    it("shows error when disconnection fails", async () => {
+      const mm = mockMcpManager();
+      (mm.disconnectRuntimeServer as any).mockRejectedValue(new Error("not connected"));
+      const ctx = mockCtx({ mcpManager: mm });
+      const result = (await findCommand("mcp-remove")!.execute("fs", ctx)) as { messages?: string[] };
+      expect(result.messages).toBeDefined();
+      expect(result.messages!.join("\n")).toContain("Failed to disconnect");
+      expect(result.messages!.join("\n")).toContain("not connected");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
 // SLASH_COMMANDS structure
 // ---------------------------------------------------------------------------
 describe("SLASH_COMMANDS", () => {
-  it("contains exactly 8 commands", () => {
-    expect(SLASH_COMMANDS).toHaveLength(8);
+  it("contains exactly 11 commands", () => {
+    expect(SLASH_COMMANDS).toHaveLength(11);
   });
 
   it.each(SLASH_COMMANDS.map((c) => [c.name, c]))(

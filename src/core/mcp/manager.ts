@@ -27,6 +27,15 @@ interface ManagedServer {
   transport: StdioClientTransport;
   /** PID of the spawned child process, or null if unavailable. */
   pid: number | null;
+  /** Number of tools discovered from this server. */
+  toolCount: number;
+}
+
+/** Summary of a single MCP server for listing. */
+export interface McpServerSummary {
+  name: string;
+  connected: boolean;
+  toolCount: number;
 }
 
 /**
@@ -66,6 +75,7 @@ export class McpManager {
         this.servers.set(serverName, managed);
 
         const { tools } = await managed.client.listTools();
+        managed.toolCount = tools.length;
 
         for (const mcpTool of tools) {
           const adapted = adaptMcpTool(
@@ -89,6 +99,89 @@ export class McpManager {
     }
 
     return registry;
+  }
+
+  /**
+   * List all known MCP servers with their connection status.
+   */
+  listServers(): McpServerSummary[] {
+    return Array.from(this.servers.entries()).map(([name, managed]) => ({
+      name,
+      connected: true,
+      toolCount: managed.toolCount,
+    }));
+  }
+
+  /**
+   * Connect a new MCP server at runtime.
+   *
+   * @param name - Server nickname for namespacing tools.
+   * @param config - Server launch configuration.
+   * @param registry - Tool registry to add discovered tools to.
+   */
+  async connectRuntimeServer(
+    name: string,
+    config: McpServerConfig,
+    registry: ToolRegistry,
+  ): Promise<void> {
+    if (this.servers.has(name)) {
+      throw new Error(`MCP server "${name}" is already connected.`);
+    }
+
+    const managed = await this.connectServer(name, config);
+    this.servers.set(name, managed);
+
+    const { tools } = await managed.client.listTools();
+    managed.toolCount = tools.length;
+
+    for (const mcpTool of tools) {
+      const adapted = adaptMcpTool(
+        mcpTool as McpToolDefinition,
+        name,
+        managed.client,
+      );
+      registry.register(adapted);
+    }
+
+    this.log.info("MCP server connected at runtime", {
+      server: name,
+      toolCount: tools.length,
+    });
+  }
+
+  /**
+   * Disconnect an MCP server at runtime.
+   *
+   * @param name - Server nickname to disconnect.
+   */
+  async disconnectRuntimeServer(name: string): Promise<void> {
+    const managed = this.servers.get(name);
+    if (!managed) {
+      throw new Error(`MCP server "${name}" is not connected.`);
+    }
+
+    this.servers.delete(name);
+
+    try {
+      await managed.client.close();
+    } catch (err) {
+      this.log.error("Error closing MCP client", {
+        server: name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    try {
+      await this.killProcess(managed.pid, 3000);
+    } catch (err) {
+      this.log.error("Error killing MCP server process", {
+        server: name,
+        pid: managed.pid,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    this.log.info("MCP server disconnected", { server: name });
   }
 
   /**
@@ -151,7 +244,7 @@ export class McpManager {
 
     this.log.debug("MCP server process spawned", { server: serverName, pid });
 
-    return { client, transport, pid };
+    return { client, transport, pid, toolCount: 0 };
   }
 
   /**

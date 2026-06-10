@@ -25,6 +25,7 @@ import type { PromptHandler, PromptOutcome } from "../core/tools/executor.js";
 import type { PermissionContext } from "../core/permissions/types.js";
 import type { ToolRegistry } from "../core/tools/registry.js";
 import type { RuntimeConfigManager } from "../core/config/runtimeConfig.js";
+import type { McpManager } from "../core/mcp/manager.js";
 import type { TokenUsage } from "../providers/types.js";
 import type { Logger } from "../utils/logger.js";
 import {
@@ -61,6 +62,7 @@ export interface TuiControllerOptions {
   modelId: string;
   providerId: string;
   configManager: RuntimeConfigManager;
+  mcpManager: McpManager;
   /** Called when a slash command (or the user) requests exit. */
   onExit: () => void;
   /** Bind extra runtime allow rules on `allow_always` decisions. */
@@ -200,6 +202,7 @@ export class TuiController {
       modelId: this.opts.modelId,
       providerId: this.opts.providerId,
       configManager: this.opts.configManager,
+      mcpManager: this.opts.mcpManager,
     };
     try {
       const result = await cmd.execute(args, ctx);

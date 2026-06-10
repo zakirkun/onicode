@@ -173,6 +173,7 @@ export async function runChat(args: ParsedArgs): Promise<number> {
     modelId: model,
     providerId,
     configManager,
+    mcpManager,
     onExit: () => {
       // The Ink `<App>` watches the `exited` flag and calls `useApp().exit`.
     },

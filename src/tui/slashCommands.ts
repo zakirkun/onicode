@@ -17,6 +17,8 @@
 import type { ToolRegistry } from "../core/tools/registry.js";
 import type { PermissionContext, PermissionMode } from "../core/permissions/types.js";
 import type { RuntimeConfigManager } from "../core/config/runtimeConfig.js";
+import type { McpManager } from "../core/mcp/manager.js";
+import type { McpServerConfig, ProviderId } from "../config/types.js";
 
 /** Result of running a slash command. */
 export interface SlashCommandResult {
@@ -39,6 +41,7 @@ export interface SlashCommandContext {
   modelId: string;
   providerId: string;
   configManager: RuntimeConfigManager;
+  mcpManager: McpManager;
 }
 
 /** A single slash command. */
@@ -54,6 +57,9 @@ export interface SlashCommand {
   /** Synchronous or async handler. */
   execute(args: string, ctx: SlashCommandContext): SlashCommandResult | Promise<SlashCommandResult>;
 }
+
+/** Valid provider identifiers for /provider validation. */
+const VALID_PROVIDERS: readonly ProviderId[] = ["anthropic", "openai", "ollama"];
 
 /** Recognized permission modes; mirror of `config/types.ts` keep-list. */
 const PERMISSION_MODES: readonly PermissionMode[] = [
@@ -127,6 +133,106 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "clear",
     summary: "Clear the on-screen scroll-back (agent history is preserved).",
     execute: () => ({ messages: [] }),
+  },
+  {
+    name: "model",
+    args: "[modelId]",
+    summary: "View or change the active model.",
+    execute: (args, ctx) => {
+      const modelId = args.trim();
+      if (!modelId) {
+        return { messages: [`Current model: ${ctx.configManager.current.defaultModel}`] };
+      }
+      ctx.configManager.setModel(modelId);
+      return { messages: [`Model changed to: ${modelId}`] };
+    },
+  },
+  {
+    name: "provider",
+    args: "[providerId]",
+    summary: "View or change the active LLM provider.",
+    execute: (args, ctx) => {
+      const id = args.trim();
+      if (!id) {
+        return {
+          messages: [`Current provider: ${ctx.configManager.current.defaultProvider}`],
+        };
+      }
+      if (!(VALID_PROVIDERS as readonly string[]).includes(id)) {
+        return {
+          messages: [
+            `Unknown provider: ${id}. Valid: ${VALID_PROVIDERS.join(", ")}`,
+          ],
+        };
+      }
+      ctx.configManager.setProvider(id as ProviderId);
+      return { messages: [`Provider changed to: ${id}`] };
+    },
+  },
+  {
+    name: "mcp-list",
+    summary: "List connected MCP servers and their tools.",
+    execute: (_args, ctx) => {
+      const servers = ctx.mcpManager.listServers();
+      if (servers.length === 0) {
+        return { messages: ["No MCP servers connected."] };
+      }
+      return {
+        messages: [
+          "MCP Servers:",
+          ...servers.map(
+            (s) => `  ${s.name} (${s.connected ? "connected" : "disconnected"}) — ${s.toolCount} tools`,
+          ),
+        ],
+      };
+    },
+  },
+  {
+    name: "mcp-add",
+    args: "<name> <command> [args...]",
+    summary: "Connect a new MCP server at runtime.",
+    execute: async (args, ctx) => {
+      const parts = args.trim().split(/\s+/);
+      if (parts.length < 2) {
+        return { messages: ["Usage: /mcp-add <name> <command> [args...]"] };
+      }
+      const [name, command, ...cmdArgs] = parts;
+      if (!name || !command) {
+        return { messages: ["Usage: /mcp-add <name> <command> [args...]"] };
+      }
+      const config: McpServerConfig = { command, args: cmdArgs };
+      try {
+        await ctx.mcpManager.connectRuntimeServer(name, config, ctx.registry);
+        return { messages: [`MCP server "${name}" connected.`] };
+      } catch (err) {
+        return {
+          messages: [
+            `Failed to connect "${name}": ${err instanceof Error ? err.message : String(err)}`,
+          ],
+        };
+      }
+    },
+  },
+  {
+    name: "mcp-remove",
+    args: "<name>",
+    summary: "Disconnect an MCP server.",
+    execute: async (args, ctx) => {
+      const name = args.trim();
+      if (!name) {
+        return { messages: ["Usage: /mcp-remove <name>"] };
+      }
+      try {
+        await ctx.mcpManager.disconnectRuntimeServer(name);
+        return { messages: [`MCP server "${name}" disconnected.`] };
+      } catch (err) {
+        return {
+          messages: [
+            `Failed to disconnect "${name}": ${err instanceof Error ? err.message : String(err)}`,
+          ],
+        };
+      }
+    },
   },
 ];
 
