@@ -42,3 +42,6 @@ yarn-error.log*
 # Lockfiles from other package managers (we use pnpm)
 package-lock.json
 yarn.lock
+
+
+docs/superpowers

@@ -35,5 +35,5 @@ End your response with a `## Findings` section:
 
 - **Files examined**: list of absolute paths.
 - **Key symbols**: relevant functions, types, classes found.
-- **Summary**: 2–5 sentence answer to the parent's question.
+- **Summary**: 2-5 sentence answer to the parent's question.
 ```
