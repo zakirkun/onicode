@@ -81,7 +81,7 @@ export interface CoordinatorOptions {
  */
 export class Coordinator {
   private readonly queue: TaskQueue;
-  private readonly opts: CoordinatorOptions;
+  private opts: CoordinatorOptions;
   readonly resultStore: TaskResultStore;
   readonly backgroundManager: BackgroundAgentManager;
 
@@ -90,6 +90,16 @@ export class Coordinator {
     this.queue = new TaskQueue({ maxConcurrency: opts.maxConcurrentSubAgents });
     this.resultStore = new TaskResultStore();
     this.backgroundManager = new BackgroundAgentManager(this.resultStore);
+  }
+
+  /** Update the default provider id (e.g., after a /provider slash command). */
+  set defaultProviderId(id: string) {
+    this.opts = { ...this.opts, defaultProviderId: id };
+  }
+
+  /** Update the default model (e.g., after a /model slash command). */
+  set defaultModel(model: string) {
+    this.opts = { ...this.opts, defaultModel: model };
   }
 
   /**

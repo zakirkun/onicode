@@ -74,6 +74,8 @@ export interface TuiControllerOptions {
   onExit: () => void;
   /** Bind extra runtime allow rules on `allow_always` decisions. */
   pushAllowRule: (rule: string) => void;
+  /** Rebuild the agent after a provider change. Returns new agent or undefined on failure. */
+  rebuildAgent?: () => Agent | undefined;
 }
 
 /**
@@ -94,15 +96,46 @@ export class TuiController {
 
   private readonly subscribers = new Set<() => void>();
   private currentAbort: AbortController | null = null;
+  /** Mutable agent reference; replaced when provider changes via /provider. */
+  private activeAgent: Agent;
 
   constructor(private readonly opts: TuiControllerOptions) {
-    // Subscribe to background agent notifications to keep bgCount in sync.
-    opts.backgroundManager.onNotification(() => {
+    this.activeAgent = opts.agent;
+    // Subscribe to background agent notifications: keep bgCount in sync and
+    // surface completion / failure messages in the chat view.
+    opts.backgroundManager.onNotification((agent) => {
       this.update((s) => ({
         ...s,
         bgCount: opts.backgroundManager.runningCount(),
       }));
+      if (agent.status === "completed") {
+        const preview = agent.result?.finalText?.slice(0, 80) ?? "";
+        this.pushSystem(`✓ Background [${agent.skillName}] completed: ${preview}`);
+      } else {
+        const err = agent.result?.error ?? "unknown error";
+        this.pushError(`✗ Background [${agent.skillName}] failed: ${err}`);
+      }
     });
+
+    // Subscribe to runtime config changes. Provider changes require a full
+    // agent rebuild; model changes take effect on the next turn since the
+    // agent reads the model from the config at call time.
+    opts.configManager.onChange((diff) => {
+      if (diff.providerChanged && opts.rebuildAgent) {
+        const newAgent = opts.rebuildAgent();
+        if (newAgent) {
+          this.activeAgent = newAgent;
+        }
+      }
+      if (diff.modelChanged) {
+        this.update((s) => ({ ...s })); // trigger re-render so StatusBar picks up new model
+      }
+    });
+  }
+
+  /** Replace the active agent (called after provider rebuild). */
+  setAgent(agent: Agent): void {
+    this.activeAgent = agent;
   }
 
   /** Subscribe to state changes. Returns the unsubscribe function. */
@@ -264,7 +297,7 @@ export class TuiController {
       // Expand @-mentions to inject file contents.
     const { expanded } = await expandMentions(line, this.opts.cwd);
 
-    for await (const event of this.opts.agent.send(expanded, abort.signal)) {
+    for await (const event of this.activeAgent.send(expanded, abort.signal)) {
         this.applyAgentEvent(event, {
           getOrCreateAssistantView: (): string => {
             if (assistantViewId) {

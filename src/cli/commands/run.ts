@@ -27,6 +27,7 @@ import { createProvider } from "../../providers/registry.js";
 import { buildBuiltinRegistry, registerOrchestrationTools } from "../../core/tools/builtinTools.js";
 import { McpManager } from "../../core/mcp/manager.js";
 import { createMemoryManager } from "../../core/memory/memoryManager.js";
+import { RuntimeConfigManager } from "../../core/config/runtimeConfig.js";
 import { createAgentSpawnTool } from "../../tools/builtin/agentSpawn.js";
 import { newAgentId } from "../../utils/idgen.js";
 import { createLogger, type Logger } from "../../utils/logger.js";
@@ -107,6 +108,12 @@ export async function runHeadless(args: ParsedArgs): Promise<number> {
 
   // Load skills from all scopes (builtin, user, project).
   const skillRegistry = await loadSkills({ log, cwd: process.cwd() });
+
+  // Runtime config manager — lets tools mutate provider/model at runtime.
+  // Headless mode does not surface slash commands, but the manager is still
+  // constructed for consistency and future extensibility.
+  const _configManager = new RuntimeConfigManager({ config, cwd: process.cwd(), log });
+  void _configManager;
 
   const agentId = newAgentId();
   const promptHandler: PromptHandler = async (_decision, prompt) => {

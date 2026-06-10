@@ -194,6 +194,21 @@ export async function runChat(args: ParsedArgs): Promise<number> {
     pushAllowRule: (rule) => {
       permissionContext.allow.push(rule);
     },
+    rebuildAgent: () => {
+      // Rebuild the agent with the new provider configuration.
+      const newProviderId = configManager.current.defaultProvider;
+      const newModel = configManager.current.defaultModel;
+      const newProviderConfig = config.providers[newProviderId];
+      if (!newProviderConfig) {
+        log.error(`No configuration for provider "${newProviderId}".`);
+        return undefined;
+      }
+      coordinator.defaultProviderId = newProviderId;
+      coordinator.defaultModel = newModel;
+      const newAgent = coordinator.buildTopLevelAgent(agentId, systemPrompt);
+      log.info(`Rebuilt agent with provider=${newProviderId}, model=${newModel}`);
+      return newAgent;
+    },
   });
 
   const instance = render(
