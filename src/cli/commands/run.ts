@@ -24,7 +24,7 @@ import { SessionManager } from "../../core/session/sessionManager.js";
 import { Coordinator } from "../../core/coordinator/coordinator.js";
 import { loadSkills } from "../../core/skills/loader.js";
 import { createProvider } from "../../providers/registry.js";
-import { buildBuiltinRegistry } from "../../core/tools/builtinTools.js";
+import { buildBuiltinRegistry, registerOrchestrationTools } from "../../core/tools/builtinTools.js";
 import { McpManager } from "../../core/mcp/manager.js";
 import { createAgentSpawnTool } from "../../tools/builtin/agentSpawn.js";
 import { newAgentId } from "../../utils/idgen.js";
@@ -144,6 +144,9 @@ export async function runHeadless(args: ParsedArgs): Promise<number> {
   // Register the AgentSpawn tool so the top-level agent can spawn sub-agents.
   const agentSpawnTool = createAgentSpawnTool(coordinator, agentId);
   registry.register(agentSpawnTool);
+
+  // Register DAG orchestration tools (TaskSpawn, TaskQuery).
+  registerOrchestrationTools(registry, coordinator, agentId);
 
   // Use the coordinator's factory method to build the top-level agent.
   const agent = coordinator.buildTopLevelAgent(agentId, DEFAULT_SYSTEM_PROMPT);

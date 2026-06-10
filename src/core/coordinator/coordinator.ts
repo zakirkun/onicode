@@ -37,6 +37,7 @@ import { TaskQueue } from "./taskQueue.js";
 import { executeTaskGraph } from "./taskGraph.js";
 import type { TaskGraph, TaskGraphResult, TaskState } from "./taskGraphTypes.js";
 import { TaskResultStore } from "../../tools/builtin/taskResultStore.js";
+import { BackgroundAgentManager } from "./backgroundAgentManager.js";
 import {
   type AgentResult,
   type CoordinatorEvent,
@@ -82,11 +83,13 @@ export class Coordinator {
   private readonly queue: TaskQueue;
   private readonly opts: CoordinatorOptions;
   readonly resultStore: TaskResultStore;
+  readonly backgroundManager: BackgroundAgentManager;
 
   constructor(opts: CoordinatorOptions) {
     this.opts = opts;
     this.queue = new TaskQueue({ maxConcurrency: opts.maxConcurrentSubAgents });
     this.resultStore = new TaskResultStore();
+    this.backgroundManager = new BackgroundAgentManager(this.resultStore);
   }
 
   /**

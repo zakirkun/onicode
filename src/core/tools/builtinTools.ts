@@ -17,6 +17,7 @@ import { readTool } from "../../tools/builtin/read.js";
 import { writeTool } from "../../tools/builtin/write.js";
 import { createTaskSpawnTool } from "../../tools/builtin/taskSpawn.js";
 import { createTaskQueryTool } from "../../tools/builtin/taskQuery.js";
+import { createBackgroundTool } from "../../tools/builtin/background.js";
 import type { Coordinator } from "../coordinator/coordinator.js";
 
 /**
@@ -37,7 +38,7 @@ export function buildBuiltinRegistry(): ToolRegistry {
 }
 
 /**
- * Register orchestration tools (TaskSpawn, TaskQuery) into
+ * Register orchestration tools (TaskSpawn, TaskQuery, Background) into
  * the registry. Called after coordinator construction since these tools
  * require a live coordinator reference.
  *
@@ -50,9 +51,7 @@ export function registerOrchestrationTools(
   coordinator: Coordinator,
   parentId: string,
 ): void {
-  // TaskSpawn and TaskQuery — DAG orchestration tools.
-  const taskSpawnTool = createTaskSpawnTool(coordinator, parentId);
-  const taskQueryTool = createTaskQueryTool(coordinator.resultStore);
-  registry.register(taskSpawnTool);
-  registry.register(taskQueryTool);
+  registry.register(createTaskSpawnTool(coordinator, parentId));
+  registry.register(createTaskQueryTool(coordinator.resultStore));
+  registry.register(createBackgroundTool(coordinator, coordinator.backgroundManager, parentId));
 }
