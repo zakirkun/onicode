@@ -187,11 +187,13 @@ export class Agent {
   ): AsyncIterable<AgentEvent> {
     switch (chunk.kind) {
       case "text":
+        turnState.flushThinking();
         turnState.textBuffer += chunk.delta;
         await this.deps.sessionWriter?.assistantText(chunk.delta, { agentId });
         yield { kind: "text_delta", agentId, delta: chunk.delta };
         return;
       case "thinking":
+        turnState.thinkingBuffer += chunk.delta;
         yield { kind: "thinking_delta", agentId, delta: chunk.delta };
         return;
       case "tool_call": {
@@ -217,6 +219,8 @@ export class Agent {
         return;
       }
       case "stop":
+        // Flush any trailing thinking before finalizing blocks.
+        turnState.flushThinking();
         // Insert the buffered text as a single text block so the
         // assistant turn is well-formed when there are no tool calls.
         if (turnState.textBuffer.length > 0) {
@@ -261,10 +265,19 @@ export class Agent {
 /** Mutable state accumulated during a single provider round-trip. */
 class TurnState {
   textBuffer = "";
+  thinkingBuffer = "";
   toolCalls: ToolCall[] = [];
   assistantBlocks: ChatContentBlock[] = [];
   stopReason: StopReason | null = null;
   usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+
+  /** Flush accumulated thinking into a content block (if any). */
+  flushThinking(): void {
+    if (this.thinkingBuffer.length > 0) {
+      this.assistantBlocks.push({ type: "thinking", thinking: this.thinkingBuffer });
+      this.thinkingBuffer = "";
+    }
+  }
 }
 
 /** Defensive `tool.summarize` wrapper; mirrors the executor's helper. */

@@ -453,6 +453,132 @@ describe("AnthropicProvider", () => {
       );
     });
 
+    it("streams thinking deltas from thinking content blocks", async () => {
+      const events = [
+        {
+          type: "content_block_start",
+          index: 0,
+          content_block: { type: "thinking", thinking: "" },
+        },
+        {
+          type: "content_block_delta",
+          index: 0,
+          delta: { type: "thinking_delta", thinking: "Let me think..." },
+        },
+        {
+          type: "content_block_delta",
+          index: 0,
+          delta: { type: "thinking_delta", thinking: " about this." },
+        },
+        { type: "content_block_stop", index: 0 },
+        {
+          type: "content_block_start",
+          index: 1,
+          content_block: { type: "text", text: "" },
+        },
+        {
+          type: "content_block_delta",
+          index: 1,
+          delta: { type: "text_delta", text: "Here is my answer." },
+        },
+        { type: "content_block_stop", index: 1 },
+        { type: "message_stop" },
+      ];
+      const finalMsg = {
+        stop_reason: "end_turn",
+        usage: { input_tokens: 50, output_tokens: 20 },
+      };
+      mockStream.mockReturnValue(createFakeSdkStream(events, finalMsg));
+
+      const provider = new AnthropicProvider({ apiKey: "sk-ant-test", log });
+      const chunks = await collectChunks(
+        provider.stream(makeReq(), new AbortController().signal),
+      );
+
+      expect(chunks).toEqual([
+        { kind: "thinking", delta: "Let me think..." },
+        { kind: "thinking", delta: " about this." },
+        { kind: "text", delta: "Here is my answer." },
+        {
+          kind: "stop",
+          reason: "end_turn",
+          usage: { inputTokens: 50, outputTokens: 20 },
+        },
+      ]);
+    });
+
+    it("does not emit tool_call for thinking content blocks", async () => {
+      const events = [
+        {
+          type: "content_block_start",
+          index: 0,
+          content_block: { type: "thinking", thinking: "" },
+        },
+        {
+          type: "content_block_delta",
+          index: 0,
+          delta: { type: "thinking_delta", thinking: "pondering" },
+        },
+        { type: "content_block_stop", index: 0 },
+        { type: "message_stop" },
+      ];
+      const finalMsg = {
+        stop_reason: "end_turn",
+        usage: { input_tokens: 10, output_tokens: 5 },
+      };
+      mockStream.mockReturnValue(createFakeSdkStream(events, finalMsg));
+
+      const provider = new AnthropicProvider({ apiKey: "sk-ant-test", log });
+      const chunks = await collectChunks(
+        provider.stream(makeReq(), new AbortController().signal),
+      );
+
+      // No tool_call chunks should appear.
+      expect(chunks.find((c) => c.kind === "tool_call")).toBeUndefined();
+      expect(chunks).toEqual([
+        { kind: "thinking", delta: "pondering" },
+        {
+          kind: "stop",
+          reason: "end_turn",
+          usage: { inputTokens: 10, outputTokens: 5 },
+        },
+      ]);
+    });
+
+    it("passes thinking config with budget_tokens to the SDK", async () => {
+      const events = [{ type: "message_stop" }];
+      const finalMsg = { stop_reason: "end_turn", usage: { input_tokens: 5, output_tokens: 1 } };
+      mockStream.mockReturnValue(createFakeSdkStream(events, finalMsg));
+
+      const provider = new AnthropicProvider({ apiKey: "sk-ant-test", log });
+      await collectChunks(
+        provider.stream(
+          makeReq({ thinking: { type: "enabled", budgetTokens: 1024 } }),
+          new AbortController().signal,
+        ),
+      );
+
+      expect(mockStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          thinking: { type: "enabled", budget_tokens: 1024 },
+        }),
+      );
+    });
+
+    it("omits thinking from SDK call when not provided", async () => {
+      const events = [{ type: "message_stop" }];
+      const finalMsg = { stop_reason: "end_turn", usage: { input_tokens: 5, output_tokens: 1 } };
+      mockStream.mockReturnValue(createFakeSdkStream(events, finalMsg));
+
+      const provider = new AnthropicProvider({ apiKey: "sk-ant-test", log });
+      await collectChunks(
+        provider.stream(makeReq(), new AbortController().signal),
+      );
+
+      const callArgs = mockStream.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs).not.toHaveProperty("thinking");
+    });
+
     it("passes temperature to the SDK when provided", async () => {
       const events = [{ type: "message_stop" }];
       const finalMsg = { stop_reason: "end_turn", usage: { input_tokens: 5, output_tokens: 1 } };

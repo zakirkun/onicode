@@ -84,6 +84,9 @@ export class AnthropicProvider implements LLMProvider {
         ? { tools: toAnthropicTools(req.tools) }
         : {}),
       ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+      ...(req.thinking !== undefined
+        ? { thinking: { type: req.thinking.type, budget_tokens: req.thinking.budgetTokens } as const }
+        : {}),
     });
 
     // Wire the abort signal through so users can cancel mid-stream.
@@ -113,6 +116,12 @@ export class AnthropicProvider implements LLMProvider {
                 name: event.content_block.name,
                 inputJson: "",
               });
+            } else if (event.content_block.type === "thinking") {
+              toolBuffers.set(event.index, {
+                id: "__thinking__",
+                name: "thinking",
+                inputJson: "",
+              });
             }
             break;
           }
@@ -121,6 +130,8 @@ export class AnthropicProvider implements LLMProvider {
             const delta = event.delta;
             if (delta.type === "text_delta") {
               yield { kind: "text", delta: delta.text };
+            } else if (delta.type === "thinking_delta") {
+              yield { kind: "thinking", delta: delta.thinking };
             } else if (delta.type === "input_json_delta") {
               const buf = toolBuffers.get(event.index);
               if (buf) {
@@ -132,7 +143,7 @@ export class AnthropicProvider implements LLMProvider {
 
           case "content_block_stop": {
             const buf = toolBuffers.get(event.index);
-            if (buf) {
+            if (buf && buf.id !== "__thinking__") {
               const input = parseToolInput(buf.inputJson, this.log);
               yield {
                 kind: "tool_call",
@@ -140,6 +151,8 @@ export class AnthropicProvider implements LLMProvider {
                 name: buf.name,
                 input,
               };
+            }
+            if (buf) {
               toolBuffers.delete(event.index);
             }
             break;
