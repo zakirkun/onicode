@@ -64,6 +64,7 @@ export interface AgentResult {
 export type AgentEvent =
   | { kind: "turn_start"; agentId: string; turnIndex: number }
   | { kind: "text_delta"; agentId: string; delta: string }
+  | { kind: "thinking_delta"; agentId: string; delta: string }
   | { kind: "tool_call"; agentId: string; call: ToolCall }
   | { kind: "tool_result"; agentId: string; result: ToolResult }
   | { kind: "turn_end"; agentId: string; turnIndex: number; usage: TokenUsage }

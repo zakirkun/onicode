@@ -35,6 +35,14 @@ export function Message(props: MessageProps): React.ReactElement {
           </Text>
         </Box>
       );
+    case "thinking":
+      return (
+        <Box flexDirection="column">
+          <Text dimColor bold>💭 thinking...</Text>
+          <Text dimColor wrap="wrap">{v.text}</Text>
+          {v.streaming ? <Text dimColor>▋</Text> : null}
+        </Box>
+      );
     case "tool_call":
       return <ToolStatus toolName={v.call.name} summary={v.summary} state="running" />;
     case "tool_result":

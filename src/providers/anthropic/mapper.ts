@@ -58,6 +58,8 @@ function toAnthropicContentBlock(
   switch (block.type) {
     case "text":
       return { type: "text", text: block.text };
+    case "thinking":
+      return { type: "thinking", thinking: block.thinking } as Anthropic.Messages.ContentBlockParam;
     case "tool_use":
       return {
         type: "tool_use",

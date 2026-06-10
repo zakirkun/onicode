@@ -191,6 +191,9 @@ export class Agent {
         await this.deps.sessionWriter?.assistantText(chunk.delta, { agentId });
         yield { kind: "text_delta", agentId, delta: chunk.delta };
         return;
+      case "thinking":
+        yield { kind: "thinking_delta", agentId, delta: chunk.delta };
+        return;
       case "tool_call": {
         const call: ToolCall = { id: chunk.id, name: chunk.name, input: chunk.input };
         turnState.toolCalls.push(call);

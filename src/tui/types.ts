@@ -20,6 +20,7 @@ import type { ToolCall, ToolErrorPayload } from "../core/tools/types.js";
 export type ChatMessageView =
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "assistant"; text: string; streaming: boolean }
+  | { id: string; kind: "thinking"; text: string; streaming: boolean }
   | { id: string; kind: "tool_call"; call: ToolCall; summary: string }
   | {
       id: string;

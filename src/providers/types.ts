@@ -26,6 +26,7 @@ export type Role = "user" | "assistant" | "system" | "tool";
 /** A unit of message content. */
 export type ChatContentBlock =
   | { type: "text"; text: string }
+  | { type: "thinking"; thinking: string }
   | { type: "tool_use"; id: string; name: string; input: unknown }
   | { type: "tool_result"; toolUseId: string; content: string; isError?: boolean };
 
@@ -59,6 +60,7 @@ export type StopReason = "end_turn" | "tool_use" | "max_tokens" | "stop_sequence
  */
 export type ChatChunk =
   | { kind: "text"; delta: string }
+  | { kind: "thinking"; delta: string }
   | { kind: "tool_call"; id: string; name: string; input: unknown }
   | { kind: "stop"; reason: StopReason; usage: TokenUsage };
 
@@ -76,6 +78,8 @@ export interface ChatRequest {
   temperature?: number;
   /** Maximum output tokens for this turn. */
   maxOutputTokens?: number;
+  /** Extended thinking / reasoning configuration (Anthropic). */
+  thinking?: { type: "enabled"; budgetTokens: number };
 }
 
 /**
