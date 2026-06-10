@@ -8,13 +8,13 @@
  *     stored in `config.apiKeyEnv`. The env-var-by-name indirection keeps
  *     literal keys out of files on disk.
  *   - A missing or empty key throws — providers are never constructed
- *     with an unauthenticated client.
+ *     with an unauthenticated client (except Ollama, which needs no key).
  *
- * v0.1 ships the Anthropic adapter only. OpenAI and Ollama throw a
- * "not yet implemented" error here so configs that reference them fail
- * fast instead of mid-stream.
+ * Both OpenAI and Ollama share the {@link OpenAIProvider} adapter since
+ * Ollama exposes an OpenAI-compatible `/v1/chat/completions` endpoint.
  */
 import { AnthropicProvider } from "./anthropic/provider.js";
+import { OpenAIProvider } from "./openai/provider.js";
 import type { LLMProvider } from "./types.js";
 import type { ProviderConfig, ProviderId } from "../config/types.js";
 import type { Logger } from "../utils/logger.js";
@@ -43,14 +43,24 @@ export function createProvider(
         log,
       });
     }
-    case "openai":
-      throw new Error(
-        `Provider "${id}" is not yet implemented. Available in v0.5; use "anthropic" for now.`,
-      );
+    case "openai": {
+      const apiKey = readApiKey(id, config);
+      return new OpenAIProvider({
+        apiKey,
+        ...(config.baseUrl !== undefined ? { baseUrl: config.baseUrl } : {}),
+        log,
+      });
+    }
     case "ollama":
-      throw new Error(
-        `Provider "${id}" is not yet implemented. Available in v0.5; use "anthropic" for now.`,
-      );
+      // Ollama needs no real API key; the OpenAI SDK requires a non-empty
+      // string so we pass a placeholder. Ollama's OpenAI-compat endpoint
+      // ignores the Authorization header entirely.
+      return new OpenAIProvider({
+        apiKey: "ollama",
+        ...(config.baseUrl !== undefined ? { baseUrl: config.baseUrl } : {}),
+        log,
+        id: "ollama",
+      });
   }
 }
 
