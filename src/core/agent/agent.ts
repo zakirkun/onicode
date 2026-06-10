@@ -76,6 +76,7 @@ export class Agent {
    *
    * @param userText - the user's message.
    * @param signal - cancellation signal — aborts mid-stream.
+   * @returns an async iterable of {@link AgentEvent}s ending with `done` or `error`.
    */
   async *send(userText: string, signal: AbortSignal): AsyncIterable<AgentEvent> {
     const { provider, registry, sessionWriter, log } = this.deps;

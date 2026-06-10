@@ -8,14 +8,31 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+/**
+ * Interface for project-level memory operations.
+ *
+ * Memory persists as markdown at `<cwd>/.onicode/memory.md` and is
+ * auto-loaded into the system prompt at session start.
+ */
 export interface MemoryManager {
+  /** Load memory contents from disk. Returns `null` if the file does not exist. */
   load(): Promise<string | null>;
+  /** Overwrite the memory file with new content. Creates parent directories if needed. */
   save(content: string): Promise<void>;
+  /** Append an entry to the existing memory file, creating it if absent. */
   append(entry: string): Promise<void>;
+  /** Reset the memory file to an empty template. */
   clear(): Promise<void>;
+  /** Return the absolute path to the memory file. */
   path(): string;
 }
 
+/**
+ * Create a memory manager bound to a working directory.
+ *
+ * @param cwd - project root; memory lives at `<cwd>/.onicode/memory.md`.
+ * @returns a {@link MemoryManager} for reading and writing project memory.
+ */
 export function createMemoryManager(cwd: string): MemoryManager {
   const filePath = join(cwd, ".onicode", "memory.md");
 

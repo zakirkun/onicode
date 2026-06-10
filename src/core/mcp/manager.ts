@@ -103,6 +103,8 @@ export class McpManager {
 
   /**
    * List all known MCP servers with their connection status.
+   *
+   * @returns array of server summaries (name, connected, toolCount).
    */
   listServers(): McpServerSummary[] {
     return Array.from(this.servers.entries()).map(([name, managed]) => ({
@@ -118,6 +120,7 @@ export class McpManager {
    * @param name - Server nickname for namespacing tools.
    * @param config - Server launch configuration.
    * @param registry - Tool registry to add discovered tools to.
+   * @returns resolves when the server is connected and tools are registered.
    */
   async connectRuntimeServer(
     name: string,
@@ -153,6 +156,7 @@ export class McpManager {
    * Disconnect an MCP server at runtime.
    *
    * @param name - Server nickname to disconnect.
+   * @returns resolves when the client is closed and process killed.
    */
   async disconnectRuntimeServer(name: string): Promise<void> {
     const managed = this.servers.get(name);
@@ -194,6 +198,7 @@ export class McpManager {
    * Shutdown is best-effort — errors are logged but never thrown.
    *
    * @param timeoutMs - Milliseconds to wait after SIGTERM before SIGKILL.
+   * @returns resolves when all servers have been torn down.
    */
   async shutdown(timeoutMs = 3000): Promise<void> {
     const entries = Array.from(this.servers.entries());

@@ -8,13 +8,28 @@ import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { resolveMention, type MentionResult } from "../mentionResolver.js";
 
+/** Props for the {@link MentionPicker} component. */
 export interface MentionPickerProps {
+  /** Current search query (text after @). */
   query: string;
+  /** Working directory for file resolution. */
   cwd: string;
+  /** Called when the user selects a result. */
   onSelect: (result: MentionResult) => void;
+  /** Called when the user cancels (Esc). */
   onCancel: () => void;
 }
 
+/**
+ * Overlay picker for @-mention file/folder selection.
+ *
+ * Renders a scrollable list of matching paths. Arrow keys navigate,
+ * Enter selects, Esc cancels. Results update asynchronously as the
+ * query changes.
+ *
+ * @param props - picker configuration and callbacks.
+ * @returns a React element rendering the picker overlay.
+ */
 export function MentionPicker({
   query,
   cwd,

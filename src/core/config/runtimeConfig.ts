@@ -139,6 +139,8 @@ export class RuntimeConfigManager {
    * Reload configuration from disk. Merges defaults + user + project
    * configs the same way the initial load does. Computes a diff between
    * the old and new configs and notifies handlers.
+   *
+   * @returns resolves when the config is reloaded and handlers notified.
    */
   async reload(): Promise<void> {
     const loadOpts: LoadConfigOptions = { cwd: this.cwd };

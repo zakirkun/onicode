@@ -27,6 +27,8 @@ import type { Coordinator } from "../coordinator/coordinator.js";
  * The `AgentSpawn`, `TaskSpawn`, and `TaskQuery` tools are registered
  * separately by each command after the coordinator is constructed
  * (they require a live coordinator reference).
+ *
+ * @returns a new {@link ToolRegistry} pre-loaded with built-in tools.
  */
 export function buildBuiltinRegistry(): ToolRegistry {
   const registry = new ToolRegistry();

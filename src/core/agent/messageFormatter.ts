@@ -36,6 +36,7 @@ export interface BuildRequestOptions {
  * The output is safe to hand directly to `LLMProvider.stream`.
  *
  * @param opts - request inputs.
+ * @returns a provider-agnostic {@link ChatRequest} ready for `LLMProvider.stream`.
  */
 export function buildRequest(opts: BuildRequestOptions): ChatRequest {
   return {

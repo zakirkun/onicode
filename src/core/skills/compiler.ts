@@ -35,7 +35,8 @@ export interface CompiledSkill {
 /**
  * Compile a skill into the agent + registry pair the coordinator needs.
  *
- * @param input - compile options.
+ * @param input - compile options including skill, agentId, and parent registry.
+ * @returns compiled agent config and filtered tool registry.
  */
 export function compileSkill(input: CompileSkillInput): CompiledSkill {
   const { skill, agentId, defaultModel, defaultProviderId, parentRegistry } = input;

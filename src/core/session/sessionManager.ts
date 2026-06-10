@@ -69,6 +69,7 @@ export class SessionManager {
    * return a writer ready for further appends.
    *
    * @param input - data captured in the session_start entry.
+   * @returns a {@link CreatedSession} handle with id, file path, and writer.
    */
   async create(input: CreateSessionInput): Promise<CreatedSession> {
     await ensureDir(this.baseDir);
@@ -92,6 +93,7 @@ export class SessionManager {
    * writer for appending new entries.
    *
    * @param sessionId - session id (matches the JSONL filename minus extension).
+   * @returns a {@link ResumedSession} with replayed state, file path, and writer.
    */
   async resume(sessionId: string): Promise<ResumedSession> {
     const filePath = path.join(this.baseDir, `${sessionId}.jsonl`);

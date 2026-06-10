@@ -58,6 +58,7 @@ export function parseRule(rule: PermissionRule): ParsedRule | null {
  * @param rule - rule string.
  * @param toolName - tool name to match against the rule's tool pattern.
  * @param summary - input summary to match against the rule's input pattern.
+ * @returns `true` if the rule matches, `false` otherwise (including malformed rules).
  */
 export function matchRule(rule: PermissionRule, toolName: string, summary: string): boolean {
   const parsed = parseRule(rule);
@@ -86,6 +87,7 @@ export function matchRule(rule: PermissionRule, toolName: string, summary: strin
  * @param rules - rule list (allow or deny).
  * @param toolName - tool name to match against each rule's tool pattern.
  * @param summary - input summary to match against each rule's input pattern.
+ * @returns `true` if any rule matches, `false` if none match or list is empty.
  */
 export function matchAny(
   rules: readonly PermissionRule[],

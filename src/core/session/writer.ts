@@ -75,7 +75,10 @@ export class SessionWriter {
     return next;
   }
 
-  /** Write the `session_start` entry containing the session meta. */
+  /**
+   * Write the `session_start` entry containing the session meta.
+   * @returns resolves when the entry is flushed to disk.
+   */
   start(meta: SessionMeta): Promise<void> {
     const entry: SessionStartEntry = {
       id: newEventId(),
@@ -86,7 +89,10 @@ export class SessionWriter {
     return this.append(entry);
   }
 
-  /** Convenience: append a `user_message` entry. */
+  /**
+   * Convenience: append a `user_message` entry.
+   * @returns resolves when the entry is queued.
+   */
   userMessage(content: string, agentId?: string): Promise<void> {
     const entry: UserMessageEntry = {
       id: newEventId(),
@@ -98,7 +104,10 @@ export class SessionWriter {
     return this.append(entry);
   }
 
-  /** Convenience: append an `assistant_text` entry (delta or final). */
+  /**
+   * Convenience: append an `assistant_text` entry (delta or final).
+   * @returns resolves when the entry is queued.
+   */
   assistantText(delta: string, opts: { agentId: string; final?: boolean }): Promise<void> {
     const entry: AssistantTextEntry = {
       id: newEventId(),
@@ -111,7 +120,10 @@ export class SessionWriter {
     return this.append(entry);
   }
 
-  /** Convenience: append a `tool_call` entry. */
+  /**
+   * Convenience: append a `tool_call` entry.
+   * @returns resolves when the entry is queued.
+   */
   toolCall(args: {
     callId: string;
     toolName: string;
@@ -132,7 +144,10 @@ export class SessionWriter {
     return this.append(entry);
   }
 
-  /** Convenience: append a `tool_result` entry. */
+  /**
+   * Convenience: append a `tool_result` entry.
+   * @returns resolves when the entry is queued.
+   */
   toolResult(args: {
     callId: string;
     ok: boolean;
@@ -153,7 +168,10 @@ export class SessionWriter {
     return this.append(entry);
   }
 
-  /** Convenience: append an `agent_event` entry. */
+  /**
+   * Convenience: append an `agent_event` entry.
+   * @returns resolves when the entry is queued.
+   */
   agentEvent(args: {
     event: AgentEventEntry["event"];
     agentId: string;
@@ -170,7 +188,10 @@ export class SessionWriter {
     return this.append(entry);
   }
 
-  /** Convenience: write the `session_end` entry and flush. */
+  /**
+   * Convenience: write the `session_end` entry and flush.
+   * @returns resolves when all queued writes have flushed to disk.
+   */
   async end(reason: SessionEndEntry["reason"], details?: Record<string, unknown>): Promise<void> {
     const entry: SessionEndEntry = {
       id: newEventId(),

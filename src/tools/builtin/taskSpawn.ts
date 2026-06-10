@@ -46,6 +46,10 @@ export type TaskSpawnOutput = string;
 
 /**
  * Create the `TaskSpawn` tool bound to a specific coordinator and parent agent id.
+ *
+ * @param coordinator - coordinator that executes the task graph.
+ * @param parentId - id of the agent invoking this tool (used for tracking).
+ * @returns a `Tool` that accepts a DAG definition and returns aggregated results.
  */
 export function createTaskSpawnTool(
   coordinator: Coordinator,

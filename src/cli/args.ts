@@ -54,6 +54,7 @@ const PROVIDERS: readonly ProviderId[] = ["anthropic", "openai", "ollama"];
  * Parse CLI arguments.
  *
  * @param argv - argument array (typically `process.argv.slice(2)`).
+ * @returns parsed subcommand, flags, and positional arguments.
  */
 export function parseArgs(argv: readonly string[]): ParsedArgs {
   const { values, positionals } = nodeParseArgs({

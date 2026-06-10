@@ -30,6 +30,9 @@ export type TaskQueryOutput = string;
 
 /**
  * Create the `TaskQuery` tool bound to a shared result store.
+ *
+ * @param resultStore - store holding results from previously spawned tasks.
+ * @returns a read-only `Tool` that retrieves task status, output, and usage.
  */
 export function createTaskQueryTool(
   resultStore: TaskResultStore,

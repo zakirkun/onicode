@@ -87,6 +87,7 @@ export class ToolExecutor {
    *
    * @param call - the tool call as emitted by the LLM.
    * @param signal - cancellation signal forwarded to the tool.
+   * @returns a structured {@link ToolResult} — `ok: true` on success, `ok: false` with error payload on failure.
    */
   async run(call: ToolCall, signal: AbortSignal): Promise<ToolResult> {
     const callLog = this.log.child({ tool: call.name, callId: call.id, agentId: this.agentId });

@@ -62,6 +62,7 @@ export interface LoggerOptions {
  * Create a new logger.
  *
  * @param opts - logger configuration; all fields optional.
+ * @returns a new {@link Logger} instance.
  */
 export function createLogger(opts: LoggerOptions = {}): Logger {
   const level = opts.level ?? "info";

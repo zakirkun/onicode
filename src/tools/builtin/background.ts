@@ -22,8 +22,17 @@ const BackgroundSchema = z.object({
   toolAllowList: z.array(z.string()).optional(),
 });
 
+/** Inferred input type for the Background tool. */
 export type BackgroundInput = z.infer<typeof BackgroundSchema>;
 
+/**
+ * Create the `Background` tool bound to a coordinator and background agent manager.
+ *
+ * @param coordinator - coordinator used to spawn the sub-agent.
+ * @param backgroundManager - manager that tracks the background agent lifecycle.
+ * @param parentId - id of the agent invoking this tool (used for tracking).
+ * @returns a `Tool` that spawns a fire-and-forget background agent and returns its id.
+ */
 export function createBackgroundTool(
   coordinator: Coordinator,
   backgroundManager: BackgroundAgentManager,
