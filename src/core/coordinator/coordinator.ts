@@ -85,6 +85,38 @@ export class Coordinator {
   }
 
   /**
+   * Build the top-level agent. The CLI wiring layer calls this once and
+   * runs `agent.send(userText)` for each user turn.
+   *
+   * @param agentId - id of the top-level agent.
+   * @param systemPrompt - system prompt for the top-level agent.
+   */
+  buildTopLevelAgent(agentId: string, systemPrompt: string): Agent {
+    const config: AgentConfig = {
+      id: agentId,
+      model: this.opts.defaultModel,
+      providerId: this.opts.defaultProviderId,
+      systemPrompt,
+    };
+    const executor = new ToolExecutor({
+      registry: this.opts.toolRegistry,
+      permissionContext: this.opts.permissionContext,
+      promptHandler: this.opts.promptHandler,
+      log: this.opts.log,
+      cwd: this.opts.cwd,
+      agentId,
+    });
+    const provider = this.opts.resolveProvider(this.opts.defaultProviderId);
+    return new Agent(config, {
+      provider,
+      registry: this.opts.toolRegistry,
+      executor,
+      sessionWriter: this.opts.sessionWriter,
+      log: this.opts.log,
+    });
+  }
+
+  /**
    * Spawn a sub-agent per the given spec. Runs under the concurrency
    * queue. Returns the sub-agent's result to the caller (the AgentSpawn
    * tool handler).
