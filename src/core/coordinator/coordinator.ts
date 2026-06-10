@@ -34,6 +34,9 @@ import type { SessionWriter } from "../session/writer.js";
 import { newAgentId } from "../../utils/idgen.js";
 import type { Logger } from "../../utils/logger.js";
 import { TaskQueue } from "./taskQueue.js";
+import { executeTaskGraph } from "./taskGraph.js";
+import type { TaskGraph, TaskGraphResult, TaskState } from "./taskGraphTypes.js";
+import { TaskResultStore } from "../../tools/builtin/taskResultStore.js";
 import {
   type AgentResult,
   type CoordinatorEvent,
@@ -78,10 +81,12 @@ export interface CoordinatorOptions {
 export class Coordinator {
   private readonly queue: TaskQueue;
   private readonly opts: CoordinatorOptions;
+  readonly resultStore: TaskResultStore;
 
   constructor(opts: CoordinatorOptions) {
     this.opts = opts;
     this.queue = new TaskQueue({ maxConcurrency: opts.maxConcurrentSubAgents });
+    this.resultStore = new TaskResultStore();
   }
 
   /**
@@ -253,6 +258,41 @@ export class Coordinator {
         return result;
       }
     });
+  }
+
+  /**
+   * Execute a task graph (DAG) using this coordinator's spawn method.
+   * Each task in the graph is spawned via `this.spawn()`, going through
+   * the concurrency queue and skill resolution. Results are stored in
+   * `this.resultStore` for later querying via TaskQuery.
+   *
+   * @param graph - the task graph definition.
+   * @param signal - cancellation signal.
+   * @param parentId - id of the parent agent initiating the graph.
+   * @param onStateChange - optional callback for task state transitions.
+   */
+  async executeGraph(
+    graph: TaskGraph,
+    signal: AbortSignal,
+    parentId: string,
+    onStateChange?: (taskId: string, state: TaskState) => void,
+  ): Promise<TaskGraphResult> {
+    // Wrap spawn to also store results in the result store.
+    const spawnAndStore = async (spec: SubAgentSpec, sig: AbortSignal): Promise<AgentResult> => {
+      const result = await this.spawn(spec, sig);
+      this.resultStore.set({
+        taskId: result.agentId,
+        status: result.success ? "completed" : "failed",
+        skillName: spec.skillName,
+        startedAt: new Date(),
+        completedAt: new Date(),
+        agentResult: result,
+        ...(result.error !== undefined ? { error: result.error } : {}),
+      });
+      return result;
+    };
+
+    return executeTaskGraph(graph, spawnAndStore, signal, parentId, onStateChange);
   }
 
   /** Emit a lifecycle event to the handler and session writer. */

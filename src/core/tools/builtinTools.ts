@@ -15,13 +15,17 @@ import { globTool } from "../../tools/builtin/glob.js";
 import { grepTool } from "../../tools/builtin/grep.js";
 import { readTool } from "../../tools/builtin/read.js";
 import { writeTool } from "../../tools/builtin/write.js";
+import { createTaskSpawnTool } from "../../tools/builtin/taskSpawn.js";
+import { createTaskQueryTool } from "../../tools/builtin/taskQuery.js";
+import type { Coordinator } from "../coordinator/coordinator.js";
 
 /**
  * Construct a {@link ToolRegistry} pre-loaded with every v0.1 built-in tool.
  *
  * Registration order: read, write, edit, bash, glob, grep.
- * The `AgentSpawn` tool is registered separately by each command after
- * the coordinator is constructed (it requires a live coordinator reference).
+ * The `AgentSpawn`, `TaskSpawn`, and `TaskQuery` tools are registered
+ * separately by each command after the coordinator is constructed
+ * (they require a live coordinator reference).
  */
 export function buildBuiltinRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
@@ -30,4 +34,25 @@ export function buildBuiltinRegistry(): ToolRegistry {
     registry.register(tool);
   }
   return registry;
+}
+
+/**
+ * Register orchestration tools (TaskSpawn, TaskQuery) into
+ * the registry. Called after coordinator construction since these tools
+ * require a live coordinator reference.
+ *
+ * @param registry - the tool registry to register into.
+ * @param coordinator - the coordinator for spawning sub-agents.
+ * @param parentId - id of the parent agent owning these tools.
+ */
+export function registerOrchestrationTools(
+  registry: ToolRegistry,
+  coordinator: Coordinator,
+  parentId: string,
+): void {
+  // TaskSpawn and TaskQuery — DAG orchestration tools.
+  const taskSpawnTool = createTaskSpawnTool(coordinator, parentId);
+  const taskQueryTool = createTaskQueryTool(coordinator.resultStore);
+  registry.register(taskSpawnTool);
+  registry.register(taskQueryTool);
 }
