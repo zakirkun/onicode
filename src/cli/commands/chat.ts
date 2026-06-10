@@ -24,13 +24,12 @@ import React from "react";
 
 import { loadConfig } from "../../config/loader.js";
 import type { OnicodeConfig, ProviderId } from "../../config/types.js";
-import { Agent } from "../../core/agent/agent.js";
-import { ToolExecutor } from "../../core/tools/executor.js";
 import { SessionManager } from "../../core/session/sessionManager.js";
 import { Coordinator } from "../../core/coordinator/coordinator.js";
 import { loadSkills } from "../../core/skills/loader.js";
 import { createProvider } from "../../providers/registry.js";
 import { buildBuiltinRegistry } from "../../core/tools/builtinTools.js";
+import type { PromptHandler } from "../../core/tools/executor.js";
 import { McpManager } from "../../core/mcp/manager.js";
 import { createAgentSpawnTool } from "../../tools/builtin/agentSpawn.js";
 import { App } from "../../tui/App.js";
@@ -82,15 +81,9 @@ export async function runChat(args: ParsedArgs): Promise<number> {
   const providerId = args.provider ?? config.defaultProvider;
   const model = args.model ?? config.defaultModel;
 
-  let provider;
-  try {
-    const providerConfig = config.providers[providerId];
-    if (!providerConfig) {
-      throw new Error(`No configuration for provider "${providerId}".`);
-    }
-    provider = createProvider(providerId, providerConfig, log);
-  } catch (err) {
-    process.stderr.write(`onicode: failed to create provider: ${describe(err)}\n`);
+  // Validate provider config early so we fail fast before creating sessions.
+  if (!config.providers[providerId]) {
+    process.stderr.write(`onicode: no configuration for provider "${providerId}".\n`);
     return 1;
   }
 
@@ -124,24 +117,17 @@ export async function runChat(args: ParsedArgs): Promise<number> {
   };
 
   const agentId = newAgentId();
-  // Forward declaration so the executor's PromptHandler can close over a
-  // controller that has not yet been constructed (mutual dependency).
+  // Forward declaration so the promptHandler can close over a controller
+  // that has not yet been constructed (mutual dependency).
   let controller: TuiController | null = null;
-  const executor = new ToolExecutor({
-    registry,
-    permissionContext,
-    promptHandler: (decision, ctx) => {
-      if (!controller) {
-        // Defensive: should never happen because we set `controller` below
-        // synchronously before any tool runs.
-        return Promise.resolve("deny");
-      }
-      return controller.promptHandler(decision, ctx);
-    },
-    log,
-    cwd: process.cwd(),
-    agentId,
-  });
+  const promptHandler: PromptHandler = (decision, ctx) => {
+    if (!controller) {
+      // Defensive: should never happen because we set `controller` below
+      // synchronously before any tool runs.
+      return Promise.resolve("deny");
+    }
+    return controller.promptHandler(decision, ctx);
+  };
 
   // Coordinator owns sub-agent spawning; the AgentSpawn tool bridges to it.
   const coordinator = new Coordinator({
@@ -156,12 +142,7 @@ export async function runChat(args: ParsedArgs): Promise<number> {
       return createProvider(pid, providerConfig, log);
     },
     permissionContext,
-    promptHandler: (decision, ctx) => {
-      if (!controller) {
-        return Promise.resolve("deny");
-      }
-      return controller.promptHandler(decision, ctx);
-    },
+    promptHandler,
     sessionWriter: session.writer,
     log,
     cwd: process.cwd(),
@@ -174,21 +155,8 @@ export async function runChat(args: ParsedArgs): Promise<number> {
   const agentSpawnTool = createAgentSpawnTool(coordinator, agentId);
   registry.register(agentSpawnTool);
 
-  const agent = new Agent(
-    {
-      id: agentId,
-      model,
-      providerId,
-      systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    },
-    {
-      provider,
-      registry,
-      executor,
-      sessionWriter: session.writer,
-      log,
-    },
-  );
+  // Use the coordinator's factory method to build the top-level agent.
+  const agent = coordinator.buildTopLevelAgent(agentId, DEFAULT_SYSTEM_PROMPT);
 
   controller = new TuiController({
     agent,

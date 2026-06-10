@@ -19,8 +19,7 @@
  */
 import { loadConfig } from "../../config/loader.js";
 import type { OnicodeConfig, ProviderId } from "../../config/types.js";
-import { Agent } from "../../core/agent/agent.js";
-import { ToolExecutor, type PromptHandler } from "../../core/tools/executor.js";
+import type { PromptHandler } from "../../core/tools/executor.js";
 import { SessionManager } from "../../core/session/sessionManager.js";
 import { Coordinator } from "../../core/coordinator/coordinator.js";
 import { loadSkills } from "../../core/skills/loader.js";
@@ -81,15 +80,10 @@ export async function runHeadless(args: ParsedArgs): Promise<number> {
   const providerId = args.provider ?? config.defaultProvider;
   const model = args.model ?? config.defaultModel;
 
-  let provider;
-  try {
-    const providerConfig = config.providers[providerId];
-    if (!providerConfig) {
-      throw new Error(`No configuration for provider "${providerId}".`);
-    }
-    provider = createProvider(providerId, providerConfig, log);
-  } catch (err) {
-    log.error("failed to create provider", { err });
+  // Validate provider config early so we fail fast before creating sessions.
+  const providerConfig = config.providers[providerId];
+  if (!providerConfig) {
+    log.error(`No configuration for provider "${providerId}".`);
     return 1;
   }
 
@@ -125,15 +119,6 @@ export async function runHeadless(args: ParsedArgs): Promise<number> {
     deny: config.permissions.deny,
   };
 
-  const executor = new ToolExecutor({
-    registry,
-    permissionContext,
-    promptHandler,
-    log,
-    cwd: process.cwd(),
-    agentId,
-  });
-
   // Coordinator owns sub-agent spawning; the AgentSpawn tool bridges to it.
   const coordinator = new Coordinator({
     skillRegistry,
@@ -160,21 +145,8 @@ export async function runHeadless(args: ParsedArgs): Promise<number> {
   const agentSpawnTool = createAgentSpawnTool(coordinator, agentId);
   registry.register(agentSpawnTool);
 
-  const agent = new Agent(
-    {
-      id: agentId,
-      model,
-      providerId,
-      systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    },
-    {
-      provider,
-      registry,
-      executor,
-      sessionWriter: session.writer,
-      log,
-    },
-  );
+  // Use the coordinator's factory method to build the top-level agent.
+  const agent = coordinator.buildTopLevelAgent(agentId, DEFAULT_SYSTEM_PROMPT);
 
   const controller = new AbortController();
   const onSigInt = (): void => controller.abort();
