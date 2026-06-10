@@ -13,6 +13,24 @@ SKILL.md files; mode-based permission gate; JSONL session transcripts.
 
 ## Status
 
+**v0.5 — Multi-provider.** Implemented on top of v0.4:
+
+- `OpenAIProvider` — shared adapter for both OpenAI and Ollama, built on
+  the `openai` SDK (v4.73+). Ollama differs only in `baseUrl`, a fake
+  `apiKey: "ollama"`, and skipping `stream_options: { include_usage: true }`
+  which Ollama's OpenAI-compat layer does not support.
+- `id?: "openai" | "ollama"` on `OpenAIProviderOptions` — controls provider
+  identity and conditional behavior (stream_options).
+- `mapper.ts` — pure functions: `toOpenAIMessages()` (filters system,
+  concatenates text blocks, maps tool results), `toOpenAITools()` (converts
+  `ToolManifest` to OpenAI function format), `mapOpenAIStopReason()`.
+- Provider factory (`registry.ts`) — replaced stub "not yet implemented"
+  errors with real `OpenAIProvider` construction for both `openai` and
+  `ollama` cases.
+- Config defaults — `openai` configured with `apiKeyEnv: "OPENAI_API_KEY"`,
+  `ollama` with `baseUrl: "http://localhost:11434/v1"`.
+- 70 tests pass: 14 mapper + 17 provider + 8 registry + 31 existing.
+
 **v0.4 — MCP client.** Implemented on top of v0.3:
 
 - `McpManager` — orchestrates MCP server lifecycle: spawns child processes
@@ -155,6 +173,27 @@ node dist/cli.js --help
 After every meaningful change, run `pnpm typecheck && pnpm build` to
 ensure the project still compiles. Strict mode catches most issues at
 compile time.
+
+## Provider Architecture (v0.5)
+
+- **Shared adapter pattern.** Both OpenAI and Ollama use `OpenAIProvider`
+  since Ollama exposes OpenAI-compatible `/v1/chat/completions`. The `id`
+  field (`"openai"` | `"ollama"`) controls conditional behavior.
+- **Conditional stream_options.** OpenAI supports `stream_options: { include_usage: true }`
+  for token counting; Ollama's compat layer does not, so it's skipped when
+  `id === "ollama"`.
+- **Tool-call buffering.** OpenAI streams tool-call arguments as JSON fragments
+  in `delta.tool_calls[i].function.arguments`. The provider accumulates
+  fragments by index and parses on `finish_reason`.
+- **Stop reason mapping.** `toOpenAIMessages()`, `toOpenAITools()`,
+  `mapOpenAIStopReason()` in `src/providers/openai/mapper.ts` handle
+  canonical ↔ OpenAI shape conversions.
+- **Token counting heuristic.** `countTokens()` uses `estimateTokensTotal()`
+  (4 chars ≈ 1 token) since OpenAI doesn't expose a standalone count endpoint
+  like Anthropic.
+- **Provider factory.** `createProvider()` in `src/providers/registry.ts`
+  constructs the right adapter based on `ProviderId`. Ollama uses placeholder
+  `apiKey: "ollama"` since its endpoint ignores the Authorization header.
 
 ## Coordinator Architecture (v0.3)
 
@@ -356,6 +395,8 @@ Validated via `OnicodeConfigSchema` (zod). API keys referenced by
 4. Add the case to `createProvider` in `src/providers/registry.ts`.
 5. Update `ProviderIdSchema` in `src/config/schema.ts`.
 6. Update `ProviderId` type in `src/config/types.ts`.
+7. For OpenAI-compatible providers (e.g., Together, Groq), reuse `OpenAIProvider`
+   with appropriate `baseUrl` and `id` field if conditional behavior needed.
 
 ## When Adding a Slash Command (v0.2+)
 
