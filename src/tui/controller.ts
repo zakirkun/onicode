@@ -293,7 +293,32 @@ export class TuiController {
       case "turn_start":
         this.update((s) => ({ ...s, activity: { kind: "thinking" } }));
         return;
+      case "thinking_delta": {
+        this.update((s) => {
+          const views = [...s.views];
+          const last = views[views.length - 1];
+          if (last && last.kind === "thinking" && last.streaming) {
+            views[views.length - 1] = { ...last, text: last.text + event.delta };
+          } else {
+            views.push({
+              id: newEventId(),
+              kind: "thinking",
+              text: event.delta,
+              streaming: true,
+            });
+          }
+          return { ...s, views };
+        });
+        return;
+      }
       case "text_delta": {
+        // Finalize any streaming thinking view before text starts.
+        this.update((s) => {
+          const views = s.views.map((v) =>
+            v.kind === "thinking" && v.streaming ? { ...v, streaming: false } : v,
+          );
+          return { ...s, views };
+        });
         const id = helpers.getOrCreateAssistantView();
         this.update((s) => ({
           ...s,
@@ -304,6 +329,13 @@ export class TuiController {
         return;
       }
       case "tool_call": {
+        // Finalize any streaming thinking view before tool call starts.
+        this.update((s) => ({
+          ...s,
+          views: s.views.map((v) =>
+            v.kind === "thinking" && v.streaming ? { ...v, streaming: false } : v,
+          ),
+        }));
         helpers.finishAssistant();
         const summary = renderCallSummary(event.call.name, event.call.input);
         helpers.recordTool(event.call.id, event.call.name, summary);
