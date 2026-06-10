@@ -51,3 +51,23 @@ export { parseFrontmatter, type ParsedFrontmatter } from "./utils/yamlFrontmatte
 // MCP client
 export { McpManager } from "./core/mcp/manager.js";
 export { adaptMcpTool, type McpToolDefinition, MCP_TOOL_NAME_PREFIX } from "./core/mcp/adapter.js";
+
+// Providers
+export {
+  type LLMProvider,
+  type ChatRequest,
+  type ChatChunk,
+  type ChatMessage,
+  type ChatContentBlock,
+  type TokenUsage,
+  type StopReason,
+  type Role,
+} from "./providers/types.js";
+export { AnthropicProvider, type AnthropicProviderOptions } from "./providers/anthropic/provider.js";
+export { OpenAIProvider, type OpenAIProviderOptions } from "./providers/openai/provider.js";
+export {
+  toOpenAIMessages,
+  toOpenAITools,
+  mapOpenAIStopReason,
+} from "./providers/openai/mapper.js";
+export { createProvider } from "./providers/registry.js";
