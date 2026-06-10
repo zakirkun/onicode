@@ -174,6 +174,7 @@ export async function runChat(args: ParsedArgs): Promise<number> {
     providerId,
     configManager,
     mcpManager,
+    cwd: process.cwd(),
     onExit: () => {
       // The Ink `<App>` watches the `exited` flag and calls `useApp().exit`.
     },
@@ -188,6 +189,7 @@ export async function runChat(args: ParsedArgs): Promise<number> {
       modelId: model,
       providerId,
       sessionId: session.sessionId,
+      cwd: process.cwd(),
     }),
     {
       // Use stdout for rendering; stderr stays free for the logger when --debug.

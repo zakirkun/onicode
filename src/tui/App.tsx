@@ -6,9 +6,10 @@
  * Ctrl+C / Ctrl+D for cancel / exit.
  */
 import { Box, Text, useApp, useInput } from "ink";
-import React from "react";
+import React, { useRef, useState } from "react";
 
-import { ChatInput } from "./components/ChatInput.js";
+import { ChatInput, type ChatInputHandle } from "./components/ChatInput.js";
+import { MentionPicker } from "./components/MentionPicker.js";
 import { MessageList } from "./components/MessageList.js";
 import { PermissionPrompt } from "./components/PermissionPrompt.js";
 import { StatusBar } from "./components/StatusBar.js";
@@ -21,12 +22,15 @@ export interface AppProps {
   modelId: string;
   providerId: string;
   sessionId: string;
+  cwd: string;
 }
 
 /** Render the OniCode chat TUI. */
 export function App(props: AppProps): React.ReactElement {
   const state = useTuiStore(props.controller);
   const { exit } = useApp();
+  const inputRef = useRef<ChatInputHandle>(null);
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
 
   // Global key bindings.
   useInput((input, key) => {
@@ -71,13 +75,34 @@ export function App(props: AppProps): React.ReactElement {
         />
       ) : null}
 
+      {mention ? (
+        <MentionPicker
+          query={mention.query}
+          cwd={props.cwd}
+          onSelect={(result) => {
+            inputRef.current?.replaceRange(mention.start, mention.start + 1 + mention.query.length, result.path);
+            setMention(null);
+          }}
+          onCancel={() => setMention(null)}
+        />
+      ) : null}
+
       <ChatInput
+        ref={inputRef}
         enabled={state.inputEnabled && state.pendingPermission === null}
         history={state.history}
         onSubmit={(text) => {
           void props.controller.submit(text);
         }}
         placeholder={state.activity.kind === "idle" ? "Ask OniCode…" : "(busy)"}
+        onMentionStart={(cursorPos) => {
+          const text = inputRef.current?.getBuffer() ?? "";
+          const beforeCursor = text.slice(0, cursorPos);
+          const match = /@([^\s@]*)$/.exec(beforeCursor);
+          if (match) {
+            setMention({ query: match[1] ?? "", start: match.index! });
+          }
+        }}
       />
 
       <StatusBar

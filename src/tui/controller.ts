@@ -28,6 +28,7 @@ import type { RuntimeConfigManager } from "../core/config/runtimeConfig.js";
 import type { McpManager } from "../core/mcp/manager.js";
 import type { TokenUsage } from "../providers/types.js";
 import type { Logger } from "../utils/logger.js";
+import { expandMentions } from "./mentionResolver.js";
 import {
   findCommand,
   parseSlashCommand,
@@ -63,6 +64,7 @@ export interface TuiControllerOptions {
   providerId: string;
   configManager: RuntimeConfigManager;
   mcpManager: McpManager;
+  cwd: string;
   /** Called when a slash command (or the user) requests exit. */
   onExit: () => void;
   /** Bind extra runtime allow rules on `allow_always` decisions. */
@@ -239,7 +241,10 @@ export class TuiController {
     const knownTools = new Map<string, { id: string; toolName: string; summary: string }>();
 
     try {
-      for await (const event of this.opts.agent.send(line, abort.signal)) {
+      // Expand @-mentions to inject file contents.
+    const { expanded } = await expandMentions(line, this.opts.cwd);
+
+    for await (const event of this.opts.agent.send(expanded, abort.signal)) {
         this.applyAgentEvent(event, {
           getOrCreateAssistantView: (): string => {
             if (assistantViewId) {

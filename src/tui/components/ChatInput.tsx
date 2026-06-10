@@ -11,7 +11,15 @@
  * receives the buffer via `onSubmit` and is free to ignore or transform it.
  */
 import { Box, Text, useInput } from "ink";
-import React, { useState } from "react";
+import React, { useState, useImperativeHandle, forwardRef } from "react";
+
+/** Public handle exposed by {@link ChatInput} via `ref`. */
+export interface ChatInputHandle {
+  /** Replace the @-mention range with the resolved path. */
+  replaceRange: (start: number, end: number, replacement: string) => void;
+  /** Get the current buffer text. */
+  getBuffer: () => string;
+}
 
 /** Props for {@link ChatInput}. */
 export interface ChatInputProps {
@@ -23,13 +31,23 @@ export interface ChatInputProps {
   onSubmit: (text: string) => void;
   /** Optional placeholder shown when the buffer is empty. */
   placeholder?: string;
+  /** Called when user types `@` to signal mention mode start. */
+  onMentionStart?: (cursorPosition: number) => void;
 }
 
 /** Single-line input editor. */
-export function ChatInput(props: ChatInputProps): React.ReactElement {
+export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(props, ref) {
   const [buffer, setBuffer] = useState("");
   const [cursor, setCursor] = useState(0);
   const [historyIdx, setHistoryIdx] = useState<number | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    replaceRange: (start: number, end: number, replacement: string) => {
+      setBuffer((b) => b.slice(0, start) + replacement + b.slice(end));
+      setCursor(start + replacement.length);
+    },
+    getBuffer: () => buffer,
+  }), [buffer]);
 
   useInput(
     (input, key) => {
@@ -103,8 +121,14 @@ export function ChatInput(props: ChatInputProps): React.ReactElement {
       // Printable input. `input` may be multi-character on paste.
       if (input && !key.ctrl && !key.meta) {
         setBuffer((b) => b.slice(0, cursor) + input + b.slice(cursor));
-        setCursor((c) => c + input.length);
+        const newCursor = cursor + input.length;
+        setCursor(newCursor);
         setHistoryIdx(null);
+
+        // Detect @-mention start.
+        if (input === "@" && props.onMentionStart) {
+          props.onMentionStart(newCursor);
+        }
       }
     },
     { isActive: props.enabled },
@@ -122,7 +146,7 @@ export function ChatInput(props: ChatInputProps): React.ReactElement {
       )}
     </Box>
   );
-}
+});
 
 /**
  * Build the rendered string: cursor cell shown in inverse video. When
